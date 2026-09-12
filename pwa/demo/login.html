@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="id" class="bg-slate-950">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Login — SRCM MBG</title>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="/shared/style.css">
+<script>
+const formatRp = n => 'Rp ' + Number(n).toLocaleString('id-ID');
+const formatDate = ts => new Date(ts).toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'});
+</script>
+
+</head>
+<body class="bg-slate-950 text-slate-100">
+<div class="min-h-screen flex items-center justify-center px-4">
+  <div class="w-full max-w-sm">
+    <div class="text-center mb-8">
+      <div class="text-5xl mb-3">⛓️</div>
+      <h1 class="text-2xl font-bold text-white">SRCM MBG</h1>
+      <p class="text-slate-400 text-sm mt-1">Supply Chain Management Platform</p>
+    </div>
+    <div class="bg-slate-900 border border-slate-700 rounded-2xl p-6 shadow-2xl">
+      <h2 class="text-white font-semibold text-lg mb-5">Masuk ke Akun</h2>
+      <div class="space-y-4">
+        <div>
+          <label class="text-slate-400 text-xs mb-1.5 block">Email</label>
+          <input type="email" placeholder="email@dapur.com" class="inp">
+        </div>
+        <div>
+          <label class="text-slate-400 text-xs mb-1.5 block">Password</label>
+          <input type="password" placeholder="••••••••" class="inp">
+        </div>
+        <button class="btn-primary w-full mt-2">Masuk</button>
+      </div>
+      <p class="text-center text-slate-500 text-xs mt-5">
+        Belum punya akun? <a href="/demo/register.html" class="text-green-400">Daftar di sini</a>
+      </p>
+    </div>
+    <p class="text-center text-slate-600 text-xs mt-6">© 2026 InsTech · SRCM MBG Platform</p>
+  </div>
+</div>
+</body>
+</html>

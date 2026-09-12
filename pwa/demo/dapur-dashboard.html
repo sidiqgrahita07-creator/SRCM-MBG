@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="id" class="bg-slate-950">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Dashboard Dapur — SRCM MBG</title>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="/shared/style.css">
+<script>
+const formatRp = n => 'Rp ' + Number(n).toLocaleString('id-ID');
+const formatDate = ts => new Date(ts).toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'});
+</script>
+
+</head>
+<body class="bg-slate-950 text-slate-100">
+
+<nav class="bg-slate-900 border-b border-slate-700 px-5 py-3 flex items-center justify-between sticky top-0 z-40 no-print">
+  <div class="flex items-center gap-3">
+    <a class="text-green-400 font-bold text-base tracking-tight">⛓️ SRCM MBG</a>
+    <span class="text-slate-600">|</span>
+    <span class="text-slate-400 text-sm" id="page-title">Dashboard</span>
+  </div>
+  <div class="flex items-center gap-3">
+    <span class="text-slate-200 text-sm font-medium">Dapur MBG Cimahi</span>
+    <span class="chip chip-approved text-xs">🍽️ Dapur</span>
+    <button class="text-slate-500 hover:text-red-400 text-xs border border-slate-700 px-3 py-1 rounded">Keluar</button>
+  </div>
+</nav>
+
+<div class="flex">
+
+<aside class="w-52 bg-slate-900 min-h-screen border-r border-slate-800 py-3 flex-shrink-0">
+  <a href="/demo/dapur-dashboard.html" class="flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-400 hover:bg-slate-800 hover:text-white transition-colors" id="nav-dashboard"><span>📊</span><span>Dashboard</span></a>
+  <a href="/demo/menu-planner.html"    class="flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-400 hover:bg-slate-800 hover:text-white transition-colors" id="nav-menu"><span>🍽️</span><span>Menu Planner</span></a>
+  <a href="/demo/po.html"             class="flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-400 hover:bg-slate-800 hover:text-white transition-colors" id="nav-po"><span>📋</span><span>Purchase Order</span></a>
+  <a href="/demo/delivery.html"       class="flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-400 hover:bg-slate-800 hover:text-white transition-colors" id="nav-dlv"><span>🚚</span><span>Pengiriman</span></a>
+  <a href="/demo/qc.html"             class="flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-400 hover:bg-slate-800 hover:text-white transition-colors" id="nav-qc"><span>✅</span><span>QC Barang</span></a>
+  <a href="/demo/chat.html"           class="flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-400 hover:bg-slate-800 hover:text-white transition-colors" id="nav-chat"><span>💬</span><span>Chat Supplier</span></a>
+</aside>
+
+<main class="flex-1 p-6 page-fade space-y-6">
+  <div class="flex items-center justify-between">
+    <div>
+      <h2 class="text-2xl font-bold text-white">Selamat datang, Dapur MBG Cimahi 👋</h2>
+      <p class="text-slate-400 text-sm mt-1">Jumat, 12 September 2026</p>
+    </div>
+    <div class="flex gap-3">
+      <a href="/demo/menu-planner.html" class="btn-primary text-sm px-4 py-2">+ Menu Plan</a>
+      <a href="/demo/po.html" class="btn-sec text-sm px-4 py-2">+ Buat PO</a>
+    </div>
+  </div>
+
+  <!-- Stats -->
+  <div class="grid grid-cols-4 gap-4">
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-4 card-hover">
+      <p class="text-slate-400 text-xs mb-1">PO Bulan Ini</p>
+      <p class="text-2xl font-bold text-white">7</p>
+      <p class="text-slate-500 text-xs mt-1">Rp 12.450.000</p>
+    </div>
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-4 card-hover">
+      <p class="text-slate-400 text-xs mb-1">Menunggu Approval</p>
+      <p class="text-2xl font-bold text-yellow-400">2</p>
+      <p class="text-slate-500 text-xs mt-1">Purchase Order</p>
+    </div>
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-4 card-hover">
+      <p class="text-slate-400 text-xs mb-1">Disetujui</p>
+      <p class="text-2xl font-bold text-green-400">4</p>
+      <p class="text-slate-500 text-xs mt-1">Siap dikirim</p>
+    </div>
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-4 card-hover">
+      <p class="text-slate-400 text-xs mb-1">Pengiriman Aktif</p>
+      <p class="text-2xl font-bold text-blue-400">1</p>
+      <p class="text-slate-500 text-xs mt-1">Dalam perjalanan</p>
+    </div>
+  </div>
+
+  <!-- Active Delivery Banner -->
+  <div class="bg-slate-800 border border-blue-800 rounded-xl p-4">
+    <div class="flex items-center justify-between mb-3">
+      <h3 class="text-white font-semibold">🚚 Pengiriman Aktif</h3>
+      <a href="/demo/delivery.html" class="text-blue-400 text-xs hover:underline">Lihat detail →</a>
+    </div>
+    <div class="flex items-center gap-4">
+      <div class="text-3xl">🚛</div>
+      <div>
+        <p class="text-white text-sm font-medium">PO-20260912-A3F</p>
+        <p class="text-slate-400 text-xs">Driver: Budi Santoso · Plat: B 1234 KA</p>
+        <p class="text-blue-300 text-xs mt-1">Estimasi tiba: 12 Sep 2026, 10:30</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-2 gap-6">
+    <!-- Recent PO -->
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-4">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-white font-semibold">📋 PO Terbaru</h3>
+        <a href="/demo/po.html" class="text-green-400 text-xs hover:underline">Semua PO →</a>
+      </div>
+      <div>
+        <div class="flex items-center justify-between py-2.5 border-b border-slate-700">
+          <div><p class="text-white text-sm font-medium">PO-20260912-A3F</p><p class="text-slate-400 text-xs">12 Sep · Rp 3.200.000</p></div>
+          <span class="chip chip-in_transit">Dalam Pengiriman</span>
+        </div>
+        <div class="flex items-center justify-between py-2.5 border-b border-slate-700">
+          <div><p class="text-white text-sm font-medium">PO-20260910-B1K</p><p class="text-slate-400 text-xs">10 Sep · Rp 2.750.000</p></div>
+          <span class="chip chip-pending">Pending</span>
+        </div>
+        <div class="flex items-center justify-between py-2.5 border-b border-slate-700">
+          <div><p class="text-white text-sm font-medium">PO-20260908-C7M</p><p class="text-slate-400 text-xs">8 Sep · Rp 4.100.000</p></div>
+          <span class="chip chip-approved">Disetujui</span>
+        </div>
+        <div class="flex items-center justify-between py-2.5">
+          <div><p class="text-white text-sm font-medium">PO-20260905-D2P</p><p class="text-slate-400 text-xs">5 Sep · Rp 2.400.000</p></div>
+          <span class="chip chip-qc_done">QC Selesai</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- AI Insight -->
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-4">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-white font-semibold">🤖 AI Insight Hari Ini</h3>
+        <button class="text-green-400 text-xs hover:underline">Refresh</button>
+      </div>
+      <div class="ai-box text-sm text-slate-200 leading-relaxed">
+        📈 <b>Konsumsi beras minggu ini 47 kg</b> — 12% lebih tinggi dari minggu lalu. Pertimbangkan order lebih awal sebelum akhir pekan.<br><br>
+        💡 <b>Menu ayam goreng</b> memberikan cost per porsi Rp 14.800 — lebih efisien 8% dibanding menu ikan. Rekomendasikan menu ini untuk Senin-Rabu.<br><br>
+        ⚠️ <b>Harga cabai rawit</b> naik 15% bulan ini. Pertimbangkan substitusi ke cabai keriting untuk menghemat Rp 180/porsi.
+      </div>
+    </div>
+  </div>
+
+  <!-- Quick Actions -->
+  <div class="grid grid-cols-4 gap-3">
+    <a href="/demo/menu-planner.html" class="bg-slate-800 border border-slate-700 hover:border-green-700 rounded-xl p-4 text-center card-hover group">
+      <div class="text-2xl mb-2">🍽️</div><p class="text-slate-300 text-sm group-hover:text-white">Rencanakan Menu</p>
+    </a>
+    <a href="/demo/po.html" class="bg-slate-800 border border-slate-700 hover:border-green-700 rounded-xl p-4 text-center card-hover group">
+      <div class="text-2xl mb-2">📋</div><p class="text-slate-300 text-sm group-hover:text-white">Buat PO</p>
+    </a>
+    <a href="/demo/delivery.html" class="bg-slate-800 border border-slate-700 hover:border-green-700 rounded-xl p-4 text-center card-hover group">
+      <div class="text-2xl mb-2">🚚</div><p class="text-slate-300 text-sm group-hover:text-white">Cek Pengiriman</p>
+    </a>
+    <a href="/demo/chat.html" class="bg-slate-800 border border-slate-700 hover:border-green-700 rounded-xl p-4 text-center card-hover group">
+      <div class="text-2xl mb-2">💬</div><p class="text-slate-300 text-sm group-hover:text-white">Chat Supplier</p>
+    </a>
+  </div>
+</main>
+</div>
+<script>document.getElementById('nav-dashboard').className = document.getElementById('nav-dashboard').className.replace('text-slate-400 hover:bg-slate-800 hover:text-white','bg-green-950 text-green-300 border-r-2 border-green-500 font-medium');</script>
+</body>
+</html>

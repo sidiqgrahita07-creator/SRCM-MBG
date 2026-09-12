@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="id" class="bg-slate-950">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SRCM MBG — UI Preview</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/shared/style.css">
+  <style>
+    body { background: #0f172a; font-family: system-ui, sans-serif; margin: 0; }
+    iframe { border: none; width: 100%; height: calc(100vh - 58px); display: block; }
+    .tab { cursor: pointer; padding: 8px 14px; font-size: 12px; border-bottom: 2px solid transparent; white-space: nowrap; transition: all 0.15s; }
+    .tab.active { color: #4ade80; border-color: #4ade80; }
+    .tab:not(.active) { color: #64748b; }
+    .tab:not(.active):hover { color: #cbd5e1; }
+    .tab-group { color: #334155; font-size: 10px; padding: 0 8px; align-self: center; }
+  </style>
+</head>
+<body>
+  <!-- Tab bar -->
+  <div class="bg-slate-900 border-b border-slate-700 flex items-center px-3 overflow-x-auto" style="height:58px; gap:0">
+    <span class="text-green-400 font-bold text-sm mr-4 whitespace-nowrap flex-shrink-0">⛓️ SRCM MBG</span>
+    
+    <span class="tab-group flex-shrink-0">AUTH</span>
+    <div class="tab active flex-shrink-0" data-url="/demo/login.html">🔐 Login</div>
+    <div class="tab flex-shrink-0" data-url="/demo/register.html">📝 Register</div>
+    
+    <span class="tab-group flex-shrink-0 ml-2">│ DAPUR</span>
+    <div class="tab flex-shrink-0" data-url="/demo/dapur-dashboard.html">📊 Dashboard</div>
+    <div class="tab flex-shrink-0" data-url="/demo/menu-planner.html">🍽️ Menu Planner</div>
+    <div class="tab flex-shrink-0" data-url="/demo/po.html">📋 Purchase Order</div>
+    <div class="tab flex-shrink-0" data-url="/demo/delivery.html">🚚 Pengiriman</div>
+    <div class="tab flex-shrink-0" data-url="/demo/qc.html">✅ QC Barang</div>
+    <div class="tab flex-shrink-0" data-url="/demo/chat.html">💬 Chat</div>
+    
+    <span class="tab-group flex-shrink-0 ml-2">│ SUPPLIER</span>
+    <div class="tab flex-shrink-0" data-url="/demo/supplier-dashboard.html">📊 Dashboard</div>
+    <div class="tab flex-shrink-0" data-url="/demo/po-inbox.html">📬 PO Inbox</div>
+    <div class="tab flex-shrink-0" data-url="/demo/delivery-mgmt.html">🚛 Pengiriman</div>
+    <div class="tab flex-shrink-0" data-url="/demo/qc-review.html">🔍 Review QC</div>
+    <div class="tab flex-shrink-0" data-url="/demo/supplier-chat.html">💬 Chat</div>
+  </div>
+
+  <iframe id="preview" src="/demo/login.html"></iframe>
+
+  <script>
+    const tabs = document.querySelectorAll('.tab');
+    tabs.forEach(tab => {
+      tab.addEventListener('click', () => {
+        tabs.forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        document.getElementById('preview').src = tab.dataset.url;
+      });
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="id" class="bg-slate-950">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Chat Dapur — SRCM MBG</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="/shared/style.css">
+
+</head>
+<body class="bg-slate-950 text-slate-100">
+
+<nav class="bg-slate-900 border-b border-slate-700 px-5 py-3 flex items-center justify-between sticky top-0 z-40">
+  <div class="flex items-center gap-3">
+    <span class="text-green-400 font-bold text-base">⛓️ SRCM MBG</span>
+    <span class="text-slate-600">|</span>
+    <span class="text-slate-400 text-sm" id="page-title">Dashboard</span>
+  </div>
+  <div class="flex items-center gap-3">
+    <span class="text-slate-200 text-sm font-medium">InsTech Supply</span>
+    <span class="chip chip-pending text-xs">🏭 Supplier</span>
+    <button class="text-slate-500 hover:text-red-400 text-xs border border-slate-700 px-3 py-1 rounded">Keluar</button>
+  </div>
+</nav>
+<div class="flex">
+
+<aside class="w-52 bg-slate-900 min-h-screen border-r border-slate-800 py-3 flex-shrink-0">
+  <a href="/demo/supplier-dashboard.html" class="flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-400 hover:bg-slate-800 hover:text-white transition-colors" id="nav-sdash"><span>📊</span><span>Dashboard</span></a>
+  <a href="/demo/po-inbox.html"           class="flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-400 hover:bg-slate-800 hover:text-white transition-colors" id="nav-poi"><span>📬</span><span>Inbox PO</span></a>
+  <a href="/demo/delivery-mgmt.html"      class="flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-400 hover:bg-slate-800 hover:text-white transition-colors" id="nav-sdlv"><span>🚛</span><span>Kelola Pengiriman</span></a>
+  <a href="/demo/qc-review.html"          class="flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-400 hover:bg-slate-800 hover:text-white transition-colors" id="nav-qcr"><span>🔍</span><span>Review QC</span></a>
+  <a href="/demo/supplier-chat.html"      class="flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-400 hover:bg-slate-800 hover:text-white transition-colors" id="nav-schat"><span>💬</span><span>Chat Dapur</span></a>
+</aside>
+<main class="flex-1 page-fade flex gap-0" style="height:calc(100vh - 57px); padding:0">
+  <!-- Dapur list sidebar -->
+  <div class="w-52 bg-slate-900 border-r border-slate-800 flex flex-col">
+    <div class="p-3 border-b border-slate-800"><p class="text-slate-300 text-xs font-semibold uppercase tracking-wider">Dapur</p></div>
+    <div class="flex-1 overflow-y-auto">
+      <button class="w-full text-left px-4 py-3 text-sm bg-green-950 text-green-300 border-r-2 border-green-500">🍽️ Dapur MBG Cimahi</button>
+      <button class="w-full text-left px-4 py-3 text-sm text-slate-300 hover:bg-slate-800">🍽️ Dapur MBG Bandung</button>
+      <button class="w-full text-left px-4 py-3 text-sm text-slate-300 hover:bg-slate-800">🍽️ Dapur MBG Garut</button>
+    </div>
+  </div>
+  <!-- Chat area -->
+  <div class="flex-1 flex flex-col bg-slate-950">
+    <div class="px-5 py-3 border-b border-slate-800">
+      <p class="text-white font-semibold">Dapur MBG Cimahi</p>
+      <p class="text-slate-500 text-xs">Ketik <span class="text-green-400">@ai</span> untuk tanya AI</p>
+    </div>
+    <div class="flex-1 overflow-y-auto space-y-4 p-5">
+      <div class="flex justify-start gap-2"><div class="max-w-xs"><p class="text-xs text-slate-400 mb-1">🍽️ Dapur MBG Cimahi</p><div class="bubble-them"><p class="text-sm">Pagi pak, untuk PO-20260912-A3F sudah berangkat jam berapa ya?</p></div><p class="text-xs text-slate-600 mt-0.5">08:15</p></div></div>
+      <div class="flex justify-end gap-2"><div class="max-w-xs"><div class="bubble-me"><p class="text-sm">Sudah berangkat jam 07:45 pak. Driver Budi, plat B 1234 KA. Estimasi tiba jam 10:30 🚛</p></div><p class="text-xs text-slate-600 mt-0.5 text-right">08:17</p></div></div>
+      <div class="flex justify-start gap-2"><div class="max-w-xs"><p class="text-xs text-slate-400 mb-1">🍽️ Dapur MBG Cimahi</p><div class="bubble-them"><p class="text-sm">Siap pak, ditunggu. @ai harga ayam bulan ini gimana trennya?</p></div><p class="text-xs text-slate-600 mt-0.5">08:20</p></div></div>
+      <div class="flex justify-start gap-2"><div style="max-width:85%"><p class="text-xs text-slate-400 mb-1">🤖 AI Assistant</p><div class="bubble-ai"><p class="text-sm leading-relaxed">Harga ayam broiler September 2026 stabil di Rp 36.000–40.000/kg. Tren naik tipis jelang akhir tahun. Rekomendasi: kunci harga kontrak bulanan. 📊</p></div><p class="text-xs text-slate-600 mt-0.5">08:20</p></div></div>
+      <div class="flex justify-start gap-2"><div class="max-w-xs"><p class="text-xs text-slate-400 mb-1">🍽️ Dapur MBG Cimahi</p><div class="bubble-them"><p class="text-sm">Makasih infonya pak 🙏</p></div><p class="text-xs text-slate-600 mt-0.5">08:22</p></div></div>
+    </div>
+    <div class="flex gap-2 p-4 border-t border-slate-800">
+      <input type="text" class="inp flex-1" placeholder="Ketik pesan...">
+      <button class="btn-primary px-5">Kirim</button>
+    </div>
+  </div>
+</main>
+</div>
+<script>document.getElementById('nav-schat').className=document.getElementById('nav-schat').className.replace('text-slate-400 hover:bg-slate-800 hover:text-white','bg-green-950 text-green-300 border-r-2 border-green-500 font-medium');</script>
+</body>
+</html>
