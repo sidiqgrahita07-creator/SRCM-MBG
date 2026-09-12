@@ -35,7 +35,8 @@
       const snap = await getDoc(doc(db, 'users', user.uid));
       if (!snap.exists()) { window.location.href = '/auth/login.html'; return; }
       const role = snap.data().role;
-      window.location.href = `/${role}/dashboard.html`;
+      const roleHome = { dapur: '/dapur/dashboard.html', admin: '/admin/dashboard.html' };
+      window.location.href = roleHome[role] || '/auth/login.html';
     });
 
     // PWA service worker

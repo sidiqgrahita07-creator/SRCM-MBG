@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="id" class="bg-slate-950">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kelola Supplier — SRCM MBG Admin</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/shared/style.css">
+</head>
+<body class="bg-slate-950 text-slate-100">
+<div id="app"></div>
+
+<script type="module">
+import { requireAuth }    from '/shared/auth.js';
+import { initLayout, showLoading, showToast, formatRp, formatDateTime, openModal, closeModal } from '/shared/components.js';
+import { getAllSuppliers, createSupplier, dbUpdate, dbDelete, createPriceRequest, getSupplierPrices } from '/shared/db.js';
+import { sendPriceRequest } from '/shared/wa.js';
+
+const user = await requireAuth('admin');
+showLoading(true, 'Memuat data supplier...');
+
+let suppliers = await getAllSuppliers();
+
+// Bahan standar yang biasa diminta harganya
+const STANDARD_ITEMS = [
+  { nama: 'Beras', satuan: 'kg' },
+  { nama: 'Ayam Broiler', satuan: 'kg' },
+  { nama: 'Ikan Lele', satuan: 'kg' },
+  { nama: 'Telur Ayam', satuan: 'kg' },
+  { nama: 'Tahu', satuan: 'kg' },
+  { nama: 'Tempe', satuan: 'kg' },
+  { nama: 'Kangkung', satuan: 'kg' },
+  { nama: 'Bayam', satuan: 'kg' },
+  { nama: 'Wortel', satuan: 'kg' },
+  { nama: 'Kentang', satuan: 'kg' },
+  { nama: 'Tomat', satuan: 'kg' },
+  { nama: 'Bawang Merah', satuan: 'kg' },
+  { nama: 'Bawang Putih', satuan: 'kg' },
+  { nama: 'Cabai Rawit', satuan: 'kg' },
+  { nama: 'Minyak Goreng', satuan: 'liter' },
+  { nama: 'Gula Pasir', satuan: 'kg' },
+  { nama: 'Garam', satuan: 'kg' },
+  { nama: 'Tepung Terigu', satuan: 'kg' },
+  { nama: 'Santan', satuan: 'liter' },
+  { nama: 'Daging Sapi', satuan: 'kg' },
+];
+
+function renderSupplierRow(s) {
+  const lastUpdate = s.lastPriceUpdate
+    ? formatDateTime(s.lastPriceUpdate)
+    : '<span class="text-red-400">Belum pernah</span>';
+  return `
+  <tr class="hover:bg-slate-800">
+    <td>
+      <div>
+        <p class="text-white font-medium">${s.name}</p>
+        <p class="text-slate-400 text-xs">${s.wilayah || '-'}</p>
+      </div>
+    </td>
+    <td>
+      <a href="https://wa.me/${s.phone?.replace(/\D/g,'').replace(/^0/,'62')}" target="_blank"
+        class="text-green-400 text-sm hover:underline">📱 ${s.phone || '-'}</a>
+    </td>
+    <td class="text-slate-300 text-sm">${s.bahan?.join(', ') || 'Semua'}</td>
+    <td>
+      <div class="flex items-center gap-1.5">
+        ${Array.from({length:5}).map((_,i) =>
+          `<span class="${i < Math.round(s.rating||5) ? 'text-yellow-400' : 'text-slate-700'}">★</span>`
+        ).join('')}
+        <span class="text-slate-400 text-xs">${s.rating||5}</span>
+      </div>
+    </td>
+    <td class="text-slate-300 text-xs">${lastUpdate}</td>
+    <td>
+      <div class="flex gap-2">
+        <button onclick="triggerPriceRequest('${s.id}','${s.name}','${s.phone}')"
+          class="text-xs bg-green-900 text-green-300 px-2 py-1.5 rounded-lg hover:bg-green-800 font-medium">
+          📲 Minta Harga
+        </button>
+        <button onclick="viewPrices('${s.id}','${s.name}')"
+          class="text-xs bg-slate-700 text-slate-300 px-2 py-1.5 rounded-lg hover:bg-slate-600">
+          📊 Lihat Harga
+        </button>
+        <button onclick="deleteSupplier('${s.id}')"
+          class="text-xs bg-red-950 text-red-400 px-2 py-1.5 rounded-lg hover:bg-red-900">
+          🗑️
+        </button>
+      </div>
+    </td>
+  </tr>`;
+}
+
+const mainHtml = `
+<div class="space-y-5 max-w-7xl">
+  <div class="flex items-center justify-between">
+    <div>
+      <h2 class="text-2xl font-bold text-white">🏭 Kelola Supplier</h2>
+      <p class="text-slate-400 text-sm mt-1">Tambah supplier, minta update harga via WA, lihat database harga</p>
+    </div>
+    <div class="flex gap-3">
+      <button onclick="blastAllPriceRequest()" class="btn-sec flex items-center gap-2">
+        📲 Blast Semua Supplier
+      </button>
+      <button onclick="showAddSupplierModal()" class="btn-primary">+ Tambah Supplier</button>
+    </div>
+  </div>
+
+  <!-- Stats -->
+  <div class="grid grid-cols-3 gap-4">
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-4 text-center">
+      <p class="text-slate-400 text-xs mb-1">Total Supplier</p>
+      <p class="text-2xl font-bold text-white">${suppliers.length}</p>
+    </div>
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-4 text-center">
+      <p class="text-slate-400 text-xs mb-1">Update Hari Ini</p>
+      <p class="text-2xl font-bold text-green-400" id="updated-today">-</p>
+    </div>
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-4 text-center">
+      <p class="text-slate-400 text-xs mb-1">Belum Update 7 Hari</p>
+      <p class="text-2xl font-bold text-yellow-400" id="stale-count">-</p>
+    </div>
+  </div>
+
+  <!-- Table -->
+  <div class="bg-slate-800 border border-slate-700 rounded-2xl overflow-hidden">
+    <div class="p-4 border-b border-slate-700">
+      <input id="inp-search" type="text" class="inp w-64" placeholder="🔍 Cari supplier...">
+    </div>
+    <div class="overflow-x-auto">
+      <table class="tbl w-full">
+        <thead><tr>
+          <th>Nama Supplier</th><th>No. WA</th><th>Bahan</th><th>Rating</th><th>Last Update Harga</th><th>Aksi</th>
+        </tr></thead>
+        <tbody id="supplier-tbody">
+          ${suppliers.length
+            ? suppliers.map(renderSupplierRow).join('')
+            : '<tr><td colspan="6" class="text-center text-slate-500 py-8">Belum ada supplier. Klik "+ Tambah Supplier".</td></tr>'}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- WA Log -->
+  <div class="bg-slate-800 border border-slate-700 rounded-2xl p-4">
+    <h3 class="text-white font-semibold mb-3">📋 Log WhatsApp Terakhir</h3>
+    <div id="wa-log-list" class="space-y-2 max-h-48 overflow-y-auto">
+      <p class="text-slate-500 text-sm">Memuat log...</p>
+    </div>
+  </div>
+</div>`;
+
+showLoading(false);
+initLayout('Kelola Supplier', user, mainHtml);
+
+// ── Hitung stats ─────────────────────────────────────────────
+const today7 = Date.now() - 7*86400000;
+const today0  = Date.now() - 1*86400000;
+const updatedToday = suppliers.filter(s => s.lastPriceUpdate > today0).length;
+const staleCount   = suppliers.filter(s => !s.lastPriceUpdate || s.lastPriceUpdate < today7).length;
+document.getElementById('updated-today').textContent = updatedToday;
+document.getElementById('stale-count').textContent   = staleCount;
+
+// ── WA Log ───────────────────────────────────────────────────
+const { getWALogs } = await import('/shared/wa.js');
+const logs = getWALogs();
+const logEl = document.getElementById('wa-log-list');
+logEl.innerHTML = logs.length
+  ? logs.slice(0,15).map(l => `
+      <div class="flex items-center gap-3 text-xs py-1.5 border-b border-slate-700 last:border-0">
+        <span class="text-slate-500">${new Date(l.sentAt).toLocaleString('id-ID')}</span>
+        <span class="chip chip-approved">${l.type}</span>
+        <span class="text-slate-300">${l.phone}</span>
+      </div>`).join('')
+  : '<p class="text-slate-500 text-sm">Belum ada log WA.</p>';
+
+// ── Search ───────────────────────────────────────────────────
+document.getElementById('inp-search')?.addEventListener('input', e => {
+  const q = e.target.value.toLowerCase();
+  document.getElementById('supplier-tbody').innerHTML = suppliers
+    .filter(s => s.name.toLowerCase().includes(q) || (s.wilayah||'').toLowerCase().includes(q))
+    .map(renderSupplierRow).join('') || '<tr><td colspan="6" class="text-center text-slate-500 py-8">Tidak ditemukan.</td></tr>';
+});
+
+// ── Add Supplier Modal ────────────────────────────────────────
+window.showAddSupplierModal = function() {
+  const itemCheckboxes = STANDARD_ITEMS.map(i =>
+    `<label class="flex items-center gap-2 text-sm text-slate-300 cursor-pointer">
+       <input type="checkbox" class="item-check accent-green-500" value="${i.nama}|${i.satuan}"> ${i.nama}
+     </label>`
+  ).join('');
+
+  openModal('add-supplier-modal', `
+  <div class="p-5 space-y-4">
+    <h3 class="text-white font-bold text-lg">+ Tambah Supplier Baru</h3>
+    <div class="grid grid-cols-2 gap-3">
+      <div class="col-span-2">
+        <label class="text-slate-400 text-xs mb-1 block">Nama Supplier / Toko</label>
+        <input id="sup-name" type="text" class="inp" placeholder="Toko Sumber Rejeki">
+      </div>
+      <div>
+        <label class="text-slate-400 text-xs mb-1 block">No. WhatsApp</label>
+        <input id="sup-phone" type="tel" class="inp" placeholder="08123456789">
+      </div>
+      <div>
+        <label class="text-slate-400 text-xs mb-1 block">Wilayah / Kota</label>
+        <input id="sup-wilayah" type="text" class="inp" placeholder="Cimahi">
+      </div>
+      <div>
+        <label class="text-slate-400 text-xs mb-1 block">Alamat</label>
+        <input id="sup-alamat" type="text" class="inp col-span-2" placeholder="Jl. Pasar No. 5">
+      </div>
+      <div>
+        <label class="text-slate-400 text-xs mb-1 block">Lat,Lng (opsional, untuk rute)</label>
+        <input id="sup-coords" type="text" class="inp" placeholder="-6.8843,107.5517">
+      </div>
+    </div>
+
+    <div>
+      <label class="text-slate-400 text-xs mb-2 block">Bahan yang dijual (pilih semua yang relevan)</label>
+      <div class="grid grid-cols-3 gap-1.5 max-h-48 overflow-y-auto bg-slate-900 rounded-xl p-3 border border-slate-700">
+        ${itemCheckboxes}
+      </div>
+    </div>
+
+    <div id="add-sup-error" class="text-red-400 text-xs hidden"></div>
+    <div class="flex gap-3">
+      <button id="btn-save-sup" onclick="saveSupplier()" class="btn-primary flex-1">Simpan Supplier</button>
+      <button onclick="closeModal('add-supplier-modal')" class="btn-sec">Batal</button>
+    </div>
+  </div>`);
+};
+
+window.saveSupplier = async function() {
+  const name    = document.getElementById('sup-name').value.trim();
+  const phone   = document.getElementById('sup-phone').value.trim();
+  const wilayah = document.getElementById('sup-wilayah').value.trim();
+  const alamat  = document.getElementById('sup-alamat').value.trim();
+  const coords  = document.getElementById('sup-coords').value.trim();
+  const errEl   = document.getElementById('add-sup-error');
+
+  if (!name || !phone) {
+    errEl.textContent = 'Nama dan nomor WA wajib diisi.';
+    errEl.classList.remove('hidden');
+    return;
+  }
+
+  const bahan = Array.from(document.querySelectorAll('.item-check:checked')).map(c => c.value.split('|')[0]);
+  const bahanItems = Array.from(document.querySelectorAll('.item-check:checked')).map(c => {
+    const [nama, satuan] = c.value.split('|');
+    return { nama, satuan };
+  });
+
+  const latLng = coords ? { lat: +coords.split(',')[0], lng: +coords.split(',')[1] } : null;
+
+  const btn = document.getElementById('btn-save-sup');
+  btn.disabled = true; btn.textContent = 'Menyimpan...';
+
+  try {
+    const id = await createSupplier({ name, phone, wilayah, alamat, bahan, bahanItems, latLng });
+    suppliers = await getAllSuppliers();
+    document.getElementById('supplier-tbody').innerHTML = suppliers.map(renderSupplierRow).join('');
+    closeModal('add-supplier-modal');
+    showToast(`Supplier "${name}" berhasil ditambahkan!`, 'success');
+  } catch(e) {
+    errEl.textContent = e.message;
+    errEl.classList.remove('hidden');
+    btn.disabled = false; btn.textContent = 'Simpan Supplier';
+  }
+};
+
+// ── Trigger price request ke 1 supplier ──────────────────────
+window.triggerPriceRequest = async function(supplierId, name, phone) {
+  const sup = suppliers.find(s => s.id === supplierId);
+  if (!sup) return;
+
+  const items = sup.bahanItems?.length ? sup.bahanItems : STANDARD_ITEMS;
+
+  const btn = event.target;
+  btn.disabled = true; btn.textContent = 'Mengirim...';
+
+  try {
+    const { reqId, token } = await createPriceRequest(supplierId, phone, items);
+    await sendPriceRequest(sup, items, reqId, token);
+    await dbUpdate('suppliers', supplierId, { lastRequestSentAt: Date.now() });
+    showToast(`WA terkirim ke ${name}!`, 'success');
+  } catch(e) {
+    showToast('Gagal kirim WA: ' + e.message, 'error');
+  }
+  btn.disabled = false; btn.innerHTML = '📲 Minta Harga';
+};
+
+// ── Blast semua supplier ─────────────────────────────────────
+window.blastAllPriceRequest = async function() {
+  if (!suppliers.length) { showToast('Belum ada supplier', 'error'); return; }
+  if (!confirm(`Kirim WA ke ${suppliers.length} supplier sekaligus?`)) return;
+
+  showToast(`Mengirim WA ke ${suppliers.length} supplier...`, 'info', 8000);
+  let success = 0;
+  for (const sup of suppliers) {
+    const items = sup.bahanItems?.length ? sup.bahanItems : STANDARD_ITEMS;
+    try {
+      const { reqId, token } = await createPriceRequest(sup.id, sup.phone, items);
+      await sendPriceRequest(sup, items, reqId, token);
+      await dbUpdate('suppliers', sup.id, { lastRequestSentAt: Date.now() });
+      success++;
+      await new Promise(r => setTimeout(r, 1500)); // delay 1.5s antar WA biar gak spam
+    } catch {}
+  }
+  showToast(`WA terkirim ke ${success}/${suppliers.length} supplier!`, 'success');
+};
+
+// ── View supplier prices ─────────────────────────────────────
+window.viewPrices = async function(supplierId, name) {
+  const prices = await getSupplierPrices(supplierId);
+  openModal('prices-modal', `
+  <div class="p-5 space-y-4">
+    <h3 class="text-white font-bold">📊 Harga — ${name}</h3>
+    ${prices.length ? `
+    <div class="overflow-x-auto">
+      <table class="tbl">
+        <thead><tr><th>Bahan</th><th>Harga</th><th>Satuan</th><th>Stok</th><th>Update</th></tr></thead>
+        <tbody>
+          ${prices.map(p => `<tr>
+            <td class="font-medium">${p.namaItem}</td>
+            <td class="text-green-400 font-bold">${formatRp(p.harga)}</td>
+            <td>${p.satuan}</td>
+            <td>${p.stokAda ? '✅ Ada' : '❌ Habis'}</td>
+            <td class="text-slate-400 text-xs">${p.updatedAt ? formatDateTime(p.updatedAt) : '-'}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>` : '<p class="text-slate-400 text-sm">Belum ada data harga dari supplier ini.</p>'}
+    <button onclick="closeModal('prices-modal')" class="btn-sec w-full">Tutup</button>
+  </div>`);
+};
+
+// ── Delete supplier ──────────────────────────────────────────
+window.deleteSupplier = async function(id) {
+  const sup = suppliers.find(s => s.id === id);
+  if (!confirm(`Hapus supplier "${sup?.name}"?`)) return;
+  try {
+    await dbDelete('suppliers', id);
+    suppliers = suppliers.filter(s => s.id !== id);
+    document.getElementById('supplier-tbody').innerHTML = suppliers.map(renderSupplierRow).join('');
+    showToast('Supplier dihapus', 'success');
+  } catch(e) { showToast('Gagal: ' + e.message, 'error'); }
+};
+</script>
+</body>
+</html>

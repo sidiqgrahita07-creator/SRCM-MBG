@@ -50,7 +50,7 @@ export async function register(email, password, name, role = 'dapur') {
     uid: cred.user.uid,
     name,
     email,
-    role,          // 'dapur' | 'supplier'
+    role,          // 'dapur' | 'admin'
     createdAt: Date.now()
   };
   await setDoc(doc(db, 'users', cred.user.uid), userData);
@@ -89,7 +89,8 @@ export function requireAuth(requiredRole = null) {
       }
       if (requiredRole && data.role !== requiredRole) {
         // redirect ke dashboard role yang benar
-        window.location.href = `/${data.role}/dashboard.html`;
+        const roleHome = { dapur: '/dapur/dashboard.html', admin: '/admin/dashboard.html' };
+        window.location.href = roleHome[data.role] || '/auth/login.html';
         return;
       }
       resolve(data);

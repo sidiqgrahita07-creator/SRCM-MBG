@@ -1,0 +1,15 @@
+{
+  "name": "srcm-mbg-cron",
+  "version": "1.0.0",
+  "description": "SRCM MBG — Cron reminder via Fonnte WhatsApp",
+  "main": "reminder.js",
+  "scripts": {
+    "start": "node reminder.js",
+    "test": "node reminder.js --dry-run"
+  },
+  "dependencies": {
+    "firebase-admin": "^12.0.0",
+    "node-fetch": "^2.7.0",
+    "dotenv": "^16.0.0"
+  }
+}

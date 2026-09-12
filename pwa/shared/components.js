@@ -33,6 +33,7 @@ export function renderSidebar(role) {
   const menuDapur = [
     { icon: '📊', label: 'Dashboard',      href: '/dapur/dashboard.html'   },
     { icon: '🍽️', label: 'Menu Planner',   href: '/dapur/menu-planner.html'},
+    { icon: '📊', label: 'Harga Pasar',    href: '/dapur/market-prices.html'},
     { icon: '📋', label: 'Purchase Order', href: '/dapur/po.html'          },
     { icon: '🚚', label: 'Pengiriman',     href: '/dapur/delivery.html'    },
     { icon: '✅', label: 'QC Barang',      href: '/dapur/qc.html'          },

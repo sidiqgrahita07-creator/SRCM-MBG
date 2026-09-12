@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="id" class="bg-slate-950">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Konfirmasi PO — SRCM MBG</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/shared/style.css">
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen">
+
+<div class="min-h-screen flex items-center justify-center px-4 py-8">
+  <div class="w-full max-w-md">
+    <div class="text-center mb-6">
+      <div class="text-4xl mb-2">⛓️</div>
+      <h1 class="text-xl font-bold text-white">SRCM MBG</h1>
+      <p class="text-slate-400 text-sm">Konfirmasi Purchase Order</p>
+    </div>
+
+    <div id="state-loading" class="bg-slate-800 border border-slate-700 rounded-2xl p-8 text-center">
+      <div class="spinner mx-auto mb-3"></div>
+      <p class="text-slate-300">Memuat detail PO...</p>
+    </div>
+
+    <div id="state-invalid" class="hidden bg-slate-800 border border-red-800 rounded-2xl p-8 text-center">
+      <p class="text-4xl mb-3">❌</p>
+      <p class="text-white font-semibold">PO Tidak Ditemukan</p>
+      <p class="text-slate-400 text-sm mt-2">Link ini tidak valid atau sudah kadaluarsa.</p>
+    </div>
+
+    <div id="state-po" class="hidden space-y-4">
+      <div class="bg-slate-800 border border-slate-700 rounded-2xl p-5 space-y-4">
+        <div class="flex items-center justify-between">
+          <h2 id="po-title" class="text-white font-bold text-lg">PO Detail</h2>
+          <span id="po-status-chip"></span>
+        </div>
+        <div class="grid grid-cols-2 gap-2 text-sm">
+          <div><span class="text-slate-400">Dari:</span> <span id="po-dapur" class="text-white"></span></div>
+          <div><span class="text-slate-400">Tgl Kirim:</span> <span id="po-date" class="text-blue-300"></span></div>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="tbl">
+            <thead><tr><th>Bahan</th><th>Qty</th><th>Satuan</th><th>Harga</th><th>Subtotal</th></tr></thead>
+            <tbody id="po-items"></tbody>
+            <tfoot><tr>
+              <td colspan="4" class="text-right font-semibold text-white py-2 px-3">Total</td>
+              <td id="po-total" class="font-bold text-green-400 py-2 px-3"></td>
+            </tr></tfoot>
+          </table>
+        </div>
+
+        <div id="po-notes" class="hidden bg-slate-700 rounded-xl p-3 text-slate-300 text-sm"></div>
+
+        <div id="action-section">
+          <p class="text-slate-400 text-sm mb-3">Konfirmasi ketersediaan barang untuk PO ini:</p>
+          <textarea id="inp-supplier-notes" class="inp" rows="2"
+            placeholder="Catatan (opsional): ada perubahan harga, sebagian stok, dll..."></textarea>
+          <div class="flex gap-3 mt-3">
+            <button onclick="confirmPO('confirmed')"
+              class="btn-primary flex-1 flex items-center justify-center gap-2">
+              ✅ Konfirmasi Sanggup Kirim
+            </button>
+            <button onclick="confirmPO('cant_fulfill')"
+              class="bg-red-900 text-red-300 border border-red-800 flex-1 py-2.5 rounded-xl text-sm hover:bg-red-800 transition">
+              ❌ Tidak Bisa Penuhi
+            </button>
+          </div>
+        </div>
+
+        <div id="confirmed-section" class="hidden bg-green-950 border border-green-800 rounded-xl p-4 text-center">
+          <p class="text-2xl mb-2">✅</p>
+          <p class="text-green-300 font-semibold">PO Dikonfirmasi</p>
+          <p class="text-slate-400 text-sm mt-1">Tim dapur MBG akan menghubungi Anda jika diperlukan. Terima kasih!</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { dbGet, dbUpdate } from '/shared/db.js';
+
+const params = new URLSearchParams(window.location.search);
+const poId   = params.get('po');
+
+function show(id) {
+  ['loading','invalid','po'].forEach(s => document.getElementById(`state-${s}`)?.classList.add('hidden'));
+  document.getElementById(`state-${id}`)?.classList.remove('hidden');
+}
+
+function formatRp(n) { return 'Rp ' + Number(n).toLocaleString('id-ID'); }
+
+if (!poId) {
+  show('invalid');
+} else {
+  try {
+    const po = await dbGet('purchase_orders', poId);
+    if (!po) { show('invalid'); }
+    else {
+      document.getElementById('po-title').textContent   = po.poId;
+      document.getElementById('po-dapur').textContent   = po.dapurName;
+      document.getElementById('po-date').textContent    = po.deliveryDate || '-';
+      document.getElementById('po-total').textContent   = formatRp(po.total);
+
+      const chips = { draft:'chip-draft', pending_approval:'chip-pending', approved:'chip-approved' };
+      document.getElementById('po-status-chip').innerHTML =
+        `<span class="chip ${chips[po.status] || 'chip-draft'}">${po.status}</span>`;
+
+      document.getElementById('po-items').innerHTML = (po.items||[]).map(i => `
+        <tr>
+          <td>${i.namaItem || i.nama}</td><td>${i.qty}</td><td>${i.satuan}</td>
+          <td>${formatRp(i.harga)}</td><td class="text-green-300">${formatRp(i.subtotal)}</td>
+        </tr>`).join('');
+
+      if (po.notes) {
+        document.getElementById('po-notes').textContent = `📝 ${po.notes}`;
+        document.getElementById('po-notes').classList.remove('hidden');
+      }
+
+      // Kalau udah confirmed, hide action
+      if (po.supplierConfirmed) {
+        document.getElementById('action-section').classList.add('hidden');
+        document.getElementById('confirmed-section').classList.remove('hidden');
+      }
+
+      show('po');
+    }
+  } catch(e) { show('invalid'); }
+}
+
+window.confirmPO = async function(status) {
+  const notes = document.getElementById('inp-supplier-notes')?.value.trim();
+  const btn   = event.target;
+  btn.disabled = true; btn.textContent = 'Menyimpan...';
+
+  try {
+    await dbUpdate('purchase_orders', poId, {
+      supplierConfirmed:     true,
+      supplierConfirmStatus: status,
+      supplierConfirmNotes:  notes,
+      supplierConfirmedAt:   Date.now(),
+    });
+    document.getElementById('action-section').classList.add('hidden');
+    document.getElementById('confirmed-section').classList.remove('hidden');
+    if (status === 'cant_fulfill') {
+      document.getElementById('confirmed-section').innerHTML = `
+        <p class="text-2xl mb-2">⚠️</p>
+        <p class="text-yellow-300 font-semibold">Respon Diterima</p>
+        <p class="text-slate-400 text-sm mt-1">Admin kami akan mencarikan alternatif supplier. Terima kasih informasinya.</p>`;
+    }
+  } catch(e) {
+    btn.disabled = false;
+    btn.textContent = status === 'confirmed' ? '✅ Konfirmasi Sanggup Kirim' : '❌ Tidak Bisa Penuhi';
+    alert('Gagal: ' + e.message);
+  }
+};
+</script>
+</body>
+</html>

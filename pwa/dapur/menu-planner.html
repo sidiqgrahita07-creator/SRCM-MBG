@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Menu Planner AI — SRCM MBG</title>
+  <title>Menu Planner — SRCM MBG</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="/shared/style.css">
 </head>
@@ -11,248 +11,482 @@
 <div id="app"></div>
 
 <script type="module">
-  import { requireAuth } from '/shared/auth.js';
-  import { initLayout, showLoading, showToast, formatRp } from '/shared/components.js';
-  import { askAI, PROMPTS } from '/shared/ai.js';
-  import { dbSet } from '/shared/db.js';
+import { requireAuth }    from '/shared/auth.js';
+import { initLayout, showLoading, showToast, formatRp, openModal, closeModal } from '/shared/components.js';
+import { askAI, PROMPTS } from '/shared/ai.js';
+import { dbSet, dbGetAll, getAllMarketPrices, findCheapestBundle, where, orderBy } from '/shared/db.js';
 
-  const user = await requireAuth('dapur');
-  showLoading(false);
+const user = await requireAuth('dapur');
+showLoading(false);
 
-  const mainHtml = `
-  <div class="space-y-6 max-w-4xl">
+// Ambil harga pasar terkini untuk mode cheapest
+let marketPrices = [];
+try { marketPrices = await getAllMarketPrices(); } catch {}
+
+const mainHtml = `
+<div class="space-y-5 max-w-5xl">
+  <div>
+    <h2 class="text-2xl font-bold text-white">🍽️ AI Menu Planner</h2>
+    <p class="text-slate-400 text-sm mt-1">Rencanakan menu H-5 dengan AI — custom menu atau rekomendasi harga termurah</p>
+  </div>
+
+  <!-- Mode selector -->
+  <div class="flex gap-2 p-1 bg-slate-800 rounded-xl w-fit">
+    <button id="btn-mode-custom" onclick="setMode('custom')"
+      class="mode-btn px-5 py-2 rounded-lg text-sm font-medium bg-green-700 text-white transition-all">
+      🍳 Custom Menu
+    </button>
+    <button id="btn-mode-cheapest" onclick="setMode('cheapest')"
+      class="mode-btn px-5 py-2 rounded-lg text-sm font-medium text-slate-400 hover:text-white transition-all">
+      💰 Termurah Hari Ini
+    </button>
+    <button id="btn-mode-schedule" onclick="setMode('schedule')"
+      class="mode-btn px-5 py-2 rounded-lg text-sm font-medium text-slate-400 hover:text-white transition-all">
+      📅 Jadwal H-5
+    </button>
+  </div>
+
+  <!-- ── MODE: CUSTOM MENU ── -->
+  <div id="panel-custom" class="bg-slate-800 border border-slate-700 rounded-2xl p-5 space-y-4">
+    <h3 class="text-white font-semibold">🍳 Input Menu Kustom</h3>
+    <p class="text-slate-400 text-sm">Tulis nama hidangan yang kamu mau. AI akan breakdown bahan & kalkulasi kebutuhan bahan otomatis.</p>
+
+    <!-- Dish input chips -->
     <div>
-      <h2 class="text-2xl font-bold text-white">🍽️ AI Menu Planner</h2>
-      <p class="text-slate-400 text-sm mt-1">AI akan merancang menu, kalori, dan kebutuhan bahan otomatis</p>
+      <label class="text-slate-400 text-xs mb-2 block">Nama Hidangan (pisah dengan koma atau Enter)</label>
+      <div id="dish-chips" class="flex flex-wrap gap-2 mb-2 min-h-[36px]"></div>
+      <div class="flex gap-2">
+        <input id="inp-dish" type="text" class="inp flex-1"
+          placeholder="Contoh: nasi putih, ayam goreng kunyit, sambal terasi, cah kangkung...">
+        <button onclick="addDish()" class="btn-sec px-4">+ Tambah</button>
+      </div>
+      <p class="text-slate-500 text-xs mt-1">Contoh populer:
+        <span class="text-green-400 cursor-pointer hover:underline" onclick="quickAdd('Nasi Putih, Ayam Goreng, Sambal, Cah Kangkung')">Paket Ayam</span> ·
+        <span class="text-green-400 cursor-pointer hover:underline" onclick="quickAdd('Nasi Putih, Ikan Goreng, Tempe Goreng, Sayur Asem')">Paket Ikan</span> ·
+        <span class="text-green-400 cursor-pointer hover:underline" onclick="quickAdd('Nasi Uduk, Ayam Bakar, Lalapan, Sambal')">Paket Nusantara</span>
+      </p>
     </div>
 
-    <!-- Form Input -->
-    <div class="bg-slate-800 border border-slate-700 rounded-2xl p-5">
-      <h3 class="text-white font-semibold mb-4">Parameter Menu</h3>
-      <div class="grid grid-cols-2 gap-4">
-        <div>
-          <label class="text-slate-400 text-xs mb-1.5 block">Jumlah Porsi</label>
-          <input id="inp-porsi" type="number" min="1" value="100" class="inp" placeholder="100">
-        </div>
-        <div>
-          <label class="text-slate-400 text-xs mb-1.5 block">Tanggal Hidang</label>
-          <input id="inp-tanggal" type="date" class="inp" value="${new Date().toISOString().split('T')[0]}">
-        </div>
-        <div>
-          <label class="text-slate-400 text-xs mb-1.5 block">Waktu Makan</label>
-          <select id="inp-waktu" class="inp">
-            <option>Sarapan</option>
-            <option selected>Makan Siang</option>
-            <option>Makan Malam</option>
-            <option>Sarapan, Makan Siang, Makan Malam</option>
-          </select>
-        </div>
-        <div>
-          <label class="text-slate-400 text-xs mb-1.5 block">Preferensi Menu</label>
-          <select id="inp-preferensi" class="inp">
-            <option value="bergizi seimbang">Bergizi Seimbang (MBG Standard)</option>
-            <option value="ekonomis">Ekonomis / Budget Terbatas</option>
-            <option value="premium">Premium / Protein Tinggi</option>
-            <option value="vegetarian">Vegetarian</option>
-          </select>
-        </div>
-        <div>
-          <label class="text-slate-400 text-xs mb-1.5 block">Max Kalori / Porsi</label>
-          <input id="inp-kalori" type="number" min="200" value="600" class="inp" placeholder="600">
-        </div>
-        <div>
-          <label class="text-slate-400 text-xs mb-1.5 block">Budget Max / Porsi (Rp)</label>
-          <input id="inp-budget" type="number" min="5000" value="20000" class="inp" placeholder="20000">
-        </div>
-      </div>
-      <div class="mt-4">
-        <label class="text-slate-400 text-xs mb-1.5 block">Catatan Tambahan (opsional)</label>
-        <textarea id="inp-catatan" class="inp" rows="2"
-          placeholder="Contoh: hindari bahan yang butuh cold chain, prioritas bahan lokal..."></textarea>
-      </div>
-      <button id="btn-generate" class="btn-primary mt-4 flex items-center gap-2">
-        <span>🤖</span> Generate Menu dengan AI
-      </button>
-    </div>
-
-    <!-- Output -->
-    <div id="output-section" class="hidden space-y-4">
-      <!-- Summary bar -->
-      <div id="summary-bar" class="bg-slate-800 border border-green-800 rounded-xl p-4 flex flex-wrap gap-6"></div>
-
-      <!-- Menu cards -->
-      <div id="menu-cards" class="space-y-4"></div>
-
-      <!-- Raw Material Table -->
-      <div class="bg-slate-800 border border-slate-700 rounded-2xl p-5">
-        <h3 class="text-white font-semibold mb-4">📦 Total Kebutuhan Raw Material</h3>
-        <div class="overflow-x-auto">
-          <table class="tbl">
-            <thead><tr>
-              <th>Bahan</th><th>Total (kg)</th><th>Harga/kg</th><th>Subtotal</th>
-            </tr></thead>
-            <tbody id="raw-material-tbody"></tbody>
-            <tfoot><tr>
-              <td colspan="3" class="text-right font-semibold text-white py-3 px-3">Total Estimasi</td>
-              <td id="total-biaya" class="font-bold text-green-400 py-3 px-3"></td>
-            </tr></tfoot>
-          </table>
-        </div>
-      </div>
-
-      <!-- AI Notes -->
-      <div id="ai-notes" class="ai-box hidden"></div>
-
-      <!-- Actions -->
-      <div class="flex gap-3">
-        <button id="btn-save-plan" class="btn-primary flex items-center gap-2">💾 Simpan Plan</button>
-        <button id="btn-to-po" class="btn-sec flex items-center gap-2">📋 Buat PO dari Plan ini</button>
-      </div>
-    </div>
-  </div>`;
-
-  initLayout('Menu Planner AI', user, mainHtml);
-
-  let currentPlan = null;
-
-  document.getElementById('btn-generate').addEventListener('click', async () => {
-    const porsi      = document.getElementById('inp-porsi').value;
-    const tanggal    = document.getElementById('inp-tanggal').value;
-    const waktu      = document.getElementById('inp-waktu').value;
-    const preferensi = document.getElementById('inp-preferensi').value;
-    const kalori     = document.getElementById('inp-kalori').value;
-    const budget     = document.getElementById('inp-budget').value;
-    const catatan    = document.getElementById('inp-catatan').value;
-
-    if (!porsi || porsi < 1) { showToast('Isi jumlah porsi terlebih dahulu', 'error'); return; }
-
-    const btn = document.getElementById('btn-generate');
-    btn.disabled = true;
-    btn.innerHTML = '<div class="spinner" style="width:16px;height:16px;border-width:2px;margin:0 auto"></div> AI sedang bekerja...';
-
-    const userMsg = `
-Tolong buat rencana menu untuk:
-- Jumlah porsi: ${porsi} porsi
-- Tanggal hidang: ${tanggal}
-- Waktu makan: ${waktu}
-- Preferensi: ${preferensi}
-- Max kalori per porsi: ${kalori} kcal
-- Budget max per porsi: Rp ${budget}
-- Catatan: ${catatan || 'tidak ada'}
-
-Sesuaikan dengan program MBG Indonesia. Harga bahan sesuai harga pasar Indonesia 2024-2026.`;
-
-    try {
-      const raw = await askAI(PROMPTS.MENU_PLANNER, userMsg, { json: true });
-      const plan = JSON.parse(raw);
-      currentPlan = { ...plan, porsi: +porsi, tanggal, waktu, preferensi, generatedAt: Date.now() };
-      renderOutput(currentPlan);
-      document.getElementById('output-section').classList.remove('hidden');
-    } catch (err) {
-      showToast('Gagal generate menu: ' + err.message, 'error');
-    }
-
-    btn.disabled = false;
-    btn.innerHTML = '<span>🤖</span> Generate Menu dengan AI';
-  });
-
-  function renderOutput(plan) {
-    // Summary bar
-    const sb = document.getElementById('summary-bar');
-    const menuCount = plan.menu?.length || 0;
-    const avgKal    = plan.menu?.reduce((s,m) => s + (m.kalori_per_porsi||0), 0) / (menuCount||1);
-    sb.innerHTML = [
-      ['🍽️ Menu', `${menuCount} item`],
-      ['👥 Porsi', `${plan.porsi} porsi`],
-      ['🔥 Avg Kalori', `${Math.round(avgKal)} kcal/porsi`],
-      ['💰 Total Estimasi', formatRp(plan.total_biaya_estimasi)],
-      ['📅 Tanggal', plan.tanggal],
-    ].map(([label, val]) => `
+    <div class="grid grid-cols-3 gap-4">
       <div>
-        <p class="text-slate-400 text-xs">${label}</p>
-        <p class="text-white font-semibold text-sm">${val}</p>
-      </div>`).join('');
+        <label class="text-slate-400 text-xs mb-1.5 block">Jumlah Porsi</label>
+        <input id="inp-porsi" type="number" min="1" value="100" class="inp">
+      </div>
+      <div>
+        <label class="text-slate-400 text-xs mb-1.5 block">Waktu Makan</label>
+        <select id="inp-waktu" class="inp">
+          <option>Sarapan</option><option selected>Makan Siang</option><option>Makan Malam</option>
+        </select>
+      </div>
+      <div>
+        <label class="text-slate-400 text-xs mb-1.5 block">Tanggal Hidang</label>
+        <input id="inp-tanggal-custom" type="date" class="inp"
+          value="${new Date(Date.now()+5*86400000).toISOString().split('T')[0]}">
+      </div>
+    </div>
+    <button id="btn-gen-custom" onclick="generateCustom()" class="btn-primary flex items-center gap-2">
+      🤖 Generate dengan AI
+    </button>
+  </div>
 
-    // Menu cards
-    const mc = document.getElementById('menu-cards');
-    mc.innerHTML = (plan.menu || []).map(m => `
+  <!-- ── MODE: TERMURAH HARI INI ── -->
+  <div id="panel-cheapest" class="hidden bg-slate-800 border border-slate-700 rounded-2xl p-5 space-y-4">
+    <h3 class="text-white font-semibold">💰 Rekomendasi Menu Termurah</h3>
+    <p class="text-slate-400 text-sm">AI menganalisis harga pasar terkini dari database supplier dan merekomendasikan menu paling hemat yang tetap bergizi.</p>
+
+    ${marketPrices.length > 0 ? `
+    <div class="bg-slate-700 border border-slate-600 rounded-xl p-3">
+      <p class="text-xs text-slate-400 mb-2">📊 Harga pasar tersedia: <b class="text-white">${marketPrices.length} jenis bahan</b></p>
+      <div class="flex flex-wrap gap-2">
+        ${marketPrices.slice(0,8).map(p => `
+          <span class="text-xs bg-slate-800 border border-slate-600 rounded-lg px-2 py-1 text-slate-300">
+            ${p.namaItem}: <b class="text-green-400">Rp${Number(p.lowestPrice).toLocaleString('id-ID')}/${p.satuan}</b>
+          </span>`).join('')}
+        ${marketPrices.length > 8 ? `<span class="text-xs text-slate-500">+${marketPrices.length - 8} lainnya</span>` : ''}
+      </div>
+    </div>` : `
+    <div class="bg-yellow-950 border border-yellow-800 rounded-xl p-3">
+      <p class="text-yellow-300 text-sm">⚠️ Database harga supplier belum ada. Admin perlu tambah supplier dan update harga dulu.</p>
+      <p class="text-yellow-400 text-xs mt-1">Mode ini akan menggunakan harga referensi pasar umum Indonesia.</p>
+    </div>`}
+
+    <div class="grid grid-cols-2 gap-4">
+      <div>
+        <label class="text-slate-400 text-xs mb-1.5 block">Jumlah Porsi</label>
+        <input id="inp-porsi-cheap" type="number" value="100" class="inp">
+      </div>
+      <div>
+        <label class="text-slate-400 text-xs mb-1.5 block">Waktu Makan</label>
+        <select id="inp-waktu-cheap" class="inp">
+          <option>Sarapan</option><option selected>Makan Siang</option><option>Makan Malam</option>
+        </select>
+      </div>
+      <div>
+        <label class="text-slate-400 text-xs mb-1.5 block">Max Budget / Porsi</label>
+        <input id="inp-budget" type="number" value="20000" class="inp">
+      </div>
+      <div>
+        <label class="text-slate-400 text-xs mb-1.5 block">Preferensi</label>
+        <select id="inp-pref" class="inp">
+          <option value="bergizi seimbang">Bergizi Seimbang</option>
+          <option value="tinggi protein">Tinggi Protein</option>
+          <option value="hemat maksimal">Hemat Maksimal</option>
+        </select>
+      </div>
+    </div>
+    <button id="btn-gen-cheapest" onclick="generateCheapest()" class="btn-primary flex items-center gap-2">
+      🤖 Cari Menu Termurah
+    </button>
+  </div>
+
+  <!-- ── MODE: JADWAL H-5 ── -->
+  <div id="panel-schedule" class="hidden bg-slate-800 border border-slate-700 rounded-2xl p-5 space-y-4">
+    <h3 class="text-white font-semibold">📅 Jadwal Menu H-5</h3>
+    <p class="text-slate-400 text-sm">Rencanakan menu 5 hari ke depan sekaligus. Sistem akan otomatis hitung kebutuhan total dan saran supplier.</p>
+    <div class="space-y-3" id="schedule-rows">
+      ${[0,1,2,3,4].map(i => {
+        const d = new Date(Date.now() + i*86400000);
+        const label = i === 0 ? 'Hari Ini' : i === 1 ? 'Besok' : `H+${i}`;
+        return `
+        <div class="bg-slate-700 rounded-xl p-3 flex items-center gap-3">
+          <div class="w-20 flex-shrink-0">
+            <p class="text-green-400 text-xs font-bold">${label}</p>
+            <p class="text-slate-400 text-xs">${d.toLocaleDateString('id-ID',{day:'2-digit',month:'short'})}</p>
+          </div>
+          <input type="text" class="inp flex-1 text-sm" placeholder="Menu hari ini... (kosongkan jika belum ada)"
+            id="sched-${i}" data-date="${d.toISOString().split('T')[0]}">
+          <input type="number" class="inp w-20 text-sm" placeholder="Porsi" value="100" id="sched-porsi-${i}">
+        </div>`;
+      }).join('')}
+    </div>
+    <button onclick="generateSchedule()" class="btn-primary flex items-center gap-2">
+      🤖 Generate Semua Jadwal
+    </button>
+  </div>
+
+  <!-- OUTPUT SECTION -->
+  <div id="output-section" class="hidden space-y-4">
+    <!-- Summary bar -->
+    <div id="summary-bar" class="bg-slate-800 border border-green-800 rounded-xl p-4 flex flex-wrap gap-6"></div>
+
+    <!-- Menu cards -->
+    <div id="menu-cards" class="space-y-4"></div>
+
+    <!-- Raw material table -->
     <div class="bg-slate-800 border border-slate-700 rounded-2xl p-5">
-      <div class="flex items-start justify-between mb-3">
-        <div>
-          <h4 class="text-white font-semibold text-base">${m.nama}</h4>
-          <p class="text-slate-400 text-xs mt-0.5">${m.waktu_hidang}</p>
-        </div>
-        <div class="text-right">
-          <p class="text-green-400 font-bold">${formatRp(m.harga_estimasi_per_porsi)}<span class="text-slate-400 text-xs font-normal">/porsi</span></p>
-          <p class="text-orange-400 text-xs">${m.kalori_per_porsi} kcal</p>
-        </div>
-      </div>
-
-      <!-- Nutrisi mini -->
-      <div class="flex gap-4 text-xs text-slate-400 mb-3">
-        <span>🥩 Protein: <b class="text-slate-200">${m.protein_gram || '-'}g</b></span>
-        <span>🍚 Karbo: <b class="text-slate-200">${m.karbohidrat_gram || '-'}g</b></span>
-        <span>🫒 Lemak: <b class="text-slate-200">${m.lemak_gram || '-'}g</b></span>
-      </div>
-
-      <!-- Bahan table -->
+      <h3 class="text-white font-semibold mb-4">📦 Total Kebutuhan Bahan Baku</h3>
       <div class="overflow-x-auto">
-        <table class="tbl text-xs">
+        <table class="tbl" id="raw-table">
           <thead><tr>
-            <th>Bahan</th><th>Per Porsi</th><th>Total (${plan.porsi} porsi)</th><th>Harga/kg</th><th>Subtotal</th>
+            <th>Bahan</th><th>Total</th><th>Harga Ref.</th>
+            <th>Harga DB Termurah</th><th>Supplier Terbaik</th><th>Subtotal</th>
           </tr></thead>
-          <tbody>
-            ${(m.bahan || []).map(b => `
-            <tr>
-              <td class="font-medium">${b.nama}</td>
-              <td>${b.qty_per_porsi_gram}g</td>
-              <td>${(b.total_gram/1000).toFixed(2)} kg</td>
-              <td>${formatRp(b.harga_per_kg)}/kg</td>
-              <td class="font-medium text-green-300">${formatRp(b.subtotal)}</td>
-            </tr>`).join('')}
-          </tbody>
+          <tbody id="raw-tbody"></tbody>
+          <tfoot><tr>
+            <td colspan="5" class="text-right font-semibold text-white py-3 px-3">Total Estimasi</td>
+            <td id="total-biaya" class="font-bold text-green-400 py-3 px-3"></td>
+          </tr></tfoot>
         </table>
       </div>
-    </div>`).join('');
+    </div>
 
-    // Raw material table
-    const tbody = document.getElementById('raw-material-tbody');
-    tbody.innerHTML = (plan.total_raw_material || []).map(r => `
-    <tr>
-      <td class="font-medium">${r.nama}</td>
-      <td>${r.total_kg?.toFixed(2) || (r.total_gram/1000).toFixed(2)} kg</td>
-      <td>${formatRp(r.harga_per_kg)}/kg</td>
-      <td class="font-medium text-green-300">${formatRp(r.total_harga)}</td>
-    </tr>`).join('');
+    <!-- AI notes -->
+    <div id="ai-notes" class="hidden ai-box text-sm text-slate-200 leading-relaxed"></div>
 
-    document.getElementById('total-biaya').textContent = formatRp(plan.total_biaya_estimasi);
+    <!-- Actions -->
+    <div class="flex gap-3 flex-wrap">
+      <button onclick="savePlan()" class="btn-primary flex items-center gap-2">💾 Simpan Plan</button>
+      <button onclick="goToPO()" class="btn-sec flex items-center gap-2">📋 Buat PO dari Plan</button>
+      <a href="/dapur/market-prices.html" class="btn-sec flex items-center gap-2">📊 Lihat Harga Pasar</a>
+    </div>
+  </div>
+</div>`;
 
-    // AI notes
-    if (plan.catatan) {
-      const notesEl = document.getElementById('ai-notes');
-      notesEl.textContent = plan.catatan;
-      notesEl.classList.remove('hidden');
-    }
+initLayout('Menu Planner AI', user, mainHtml);
+
+// ── State ────────────────────────────────────────────────────
+let dishes       = [];
+let currentPlan  = null;
+let currentMode  = 'custom';
+
+// ── Mode switch ──────────────────────────────────────────────
+window.setMode = function(mode) {
+  currentMode = mode;
+  ['custom','cheapest','schedule'].forEach(m => {
+    document.getElementById(`panel-${m}`)?.classList.add('hidden');
+    document.getElementById(`btn-mode-${m}`)?.classList.remove('bg-green-700','text-white');
+    document.getElementById(`btn-mode-${m}`)?.classList.add('text-slate-400');
+  });
+  document.getElementById(`panel-${mode}`)?.classList.remove('hidden');
+  document.getElementById(`btn-mode-${mode}`)?.classList.add('bg-green-700','text-white');
+  document.getElementById(`btn-mode-${mode}`)?.classList.remove('text-slate-400');
+};
+
+// ── Dish chips (mode custom) ─────────────────────────────────
+function renderChips() {
+  const container = document.getElementById('dish-chips');
+  if (!container) return;
+  container.innerHTML = dishes.map((d,i) => `
+    <span class="flex items-center gap-1 bg-green-900 border border-green-700 text-green-200 text-xs rounded-full px-3 py-1">
+      ${d} <button onclick="removeDish(${i})" class="text-green-400 hover:text-red-400 ml-1 font-bold">×</button>
+    </span>`).join('');
+}
+
+window.addDish = function() {
+  const inp = document.getElementById('inp-dish');
+  if (!inp) return;
+  const vals = inp.value.split(',').map(v => v.trim()).filter(Boolean);
+  vals.forEach(v => { if (!dishes.includes(v)) dishes.push(v); });
+  inp.value = '';
+  renderChips();
+};
+
+window.removeDish = function(i) { dishes.splice(i, 1); renderChips(); };
+
+window.quickAdd = function(str) {
+  str.split(',').map(v => v.trim()).forEach(v => { if (!dishes.includes(v)) dishes.push(v); });
+  renderChips();
+};
+
+// Enter key on input
+document.getElementById('inp-dish')?.addEventListener('keydown', e => {
+  if (e.key === 'Enter') { e.preventDefault(); window.addDish(); }
+});
+
+// ── Generate Custom ──────────────────────────────────────────
+window.generateCustom = async function() {
+  if (!dishes.length) { showToast('Tambahkan nama hidangan dulu', 'error'); return; }
+  const porsi  = +document.getElementById('inp-porsi').value || 100;
+  const waktu  = document.getElementById('inp-waktu').value;
+  const tanggal = document.getElementById('inp-tanggal-custom').value;
+
+  const btn = document.getElementById('btn-gen-custom');
+  setLoadingBtn(btn, true, 'AI sedang menganalisis menu...');
+
+  const userMsg = `
+Hidangan yang diminta: ${dishes.join(', ')}
+Jumlah porsi: ${porsi}
+Waktu makan: ${waktu}
+Tanggal: ${tanggal}
+
+Breakdown setiap hidangan dan kalkulasi kebutuhan bahan untuk ${porsi} porsi.
+Harga sesuai harga pasar Indonesia 2025-2026.`;
+
+  try {
+    const raw  = await askAI(PROMPTS.MENU_CUSTOM, userMsg, { json: true });
+    const plan = JSON.parse(raw);
+    currentPlan = { ...plan, porsi, tanggal, waktu, mode: 'custom', generatedAt: Date.now() };
+    await renderOutput(currentPlan);
+    document.getElementById('output-section')?.classList.remove('hidden');
+    document.getElementById('output-section')?.scrollIntoView({ behavior: 'smooth' });
+  } catch(e) {
+    showToast('Gagal generate: ' + e.message, 'error');
+  }
+  setLoadingBtn(btn, false, '🤖 Generate dengan AI');
+};
+
+// ── Generate Cheapest ────────────────────────────────────────
+window.generateCheapest = async function() {
+  const porsi  = +document.getElementById('inp-porsi-cheap').value || 100;
+  const waktu  = document.getElementById('inp-waktu-cheap').value;
+  const budget = +document.getElementById('inp-budget').value || 20000;
+  const pref   = document.getElementById('inp-pref').value;
+
+  const btn = document.getElementById('btn-gen-cheapest');
+  setLoadingBtn(btn, true, 'AI menganalisis harga pasar...');
+
+  // Build context dari DB harga
+  const priceContext = marketPrices.length > 0
+    ? `Data harga pasar terkini dari supplier:\n${marketPrices.map(p =>
+        `${p.namaItem} (${p.satuan}): termurah Rp${p.lowestPrice} dari ${p.lowestSupplierName}, rata-rata Rp${p.avgPrice}`
+      ).join('\n')}`
+    : 'Database harga supplier belum tersedia, gunakan harga pasar umum Indonesia 2025-2026.';
+
+  const userMsg = `
+${priceContext}
+
+Parameter:
+- Jumlah porsi: ${porsi}
+- Waktu makan: ${waktu}
+- Budget max per porsi: Rp ${budget}
+- Preferensi: ${pref}
+
+Rekomendasikan menu yang paling hemat berdasarkan harga di atas, tetap memenuhi standar gizi MBG.`;
+
+  try {
+    const raw  = await askAI(PROMPTS.MENU_CHEAPEST, userMsg, { json: true });
+    const plan = JSON.parse(raw);
+    currentPlan = { ...plan, porsi, waktu, mode: 'cheapest', generatedAt: Date.now() };
+    await renderOutput(currentPlan);
+    document.getElementById('output-section')?.classList.remove('hidden');
+    document.getElementById('output-section')?.scrollIntoView({ behavior: 'smooth' });
+  } catch(e) {
+    showToast('Gagal generate: ' + e.message, 'error');
+  }
+  setLoadingBtn(btn, false, '🤖 Cari Menu Termurah');
+};
+
+// ── Generate Schedule ────────────────────────────────────────
+window.generateSchedule = async function() {
+  const days = [0,1,2,3,4].map(i => ({
+    tanggal: document.getElementById(`sched-${i}`)?.dataset.date,
+    menu:    document.getElementById(`sched-${i}`)?.value.trim(),
+    porsi:   +document.getElementById(`sched-porsi-${i}`)?.value || 100,
+  })).filter(d => d.menu);
+
+  if (!days.length) { showToast('Isi minimal 1 menu di jadwal', 'error'); return; }
+  showToast('Generating jadwal ' + days.length + ' hari...', 'info', 5000);
+
+  // Generate satu per satu (sequential biar gak timeout)
+  const allPlans = [];
+  for (const day of days) {
+    const userMsg = `Hidangan: ${day.menu}\nJumlah porsi: ${day.porsi}\nTanggal: ${day.tanggal}`;
+    try {
+      const raw  = await askAI(PROMPTS.MENU_CUSTOM, userMsg, { json: true });
+      const plan = JSON.parse(raw);
+      allPlans.push({ ...plan, tanggal: day.tanggal, porsi: day.porsi });
+    } catch {}
   }
 
-  // Simpan plan ke Firestore
-  document.getElementById('btn-save-plan')?.addEventListener('click', async () => {
-    if (!currentPlan) return;
-    const planId = `PLAN-${Date.now()}`;
-    try {
-      await dbSet(`menu_plans/${user.uid}`, planId, currentPlan);
-      showToast(`Plan tersimpan: ${planId}`, 'success');
-    } catch (e) {
-      showToast('Gagal menyimpan: ' + e.message, 'error');
-    }
-  });
+  // Merge jadi satu plan
+  const merged = mergePlans(allPlans);
+  currentPlan  = { ...merged, mode: 'schedule', generatedAt: Date.now() };
+  await renderOutput(currentPlan);
+  document.getElementById('output-section')?.classList.remove('hidden');
+  document.getElementById('output-section')?.scrollIntoView({ behavior: 'smooth' });
+};
 
-  // Buat PO dari plan
-  document.getElementById('btn-to-po')?.addEventListener('click', () => {
-    if (!currentPlan) return;
-    localStorage.setItem('srcm_draft_po_from_plan', JSON.stringify(currentPlan));
-    window.location.href = '/dapur/po.html?from=plan';
-  });
+function mergePlans(plans) {
+  const allMenu = plans.flatMap(p => p.menu || []);
+  const rawMap  = {};
+  plans.forEach(p => (p.total_raw_material || []).forEach(r => {
+    if (!rawMap[r.nama]) rawMap[r.nama] = { ...r, total_kg: 0, total_harga: 0 };
+    rawMap[r.nama].total_kg    += (r.total_kg || r.total_gram/1000 || 0);
+    rawMap[r.nama].total_harga += (r.total_harga || 0);
+  }));
+  const total_raw_material  = Object.values(rawMap);
+  const total_biaya_estimasi = total_raw_material.reduce((s,r) => s + r.total_harga, 0);
+  return { menu: allMenu, total_raw_material, total_biaya_estimasi };
+}
+
+// ── Render Output ────────────────────────────────────────────
+async function renderOutput(plan) {
+  // Summary bar
+  const menuCount = plan.menu?.length || 0;
+  const avgKal    = menuCount
+    ? Math.round(plan.menu.reduce((s,m) => s+(m.kalori_per_porsi||0), 0) / menuCount)
+    : 0;
+
+  document.getElementById('summary-bar').innerHTML = [
+    ['🍽️ Menu',       `${menuCount} hidangan`],
+    ['🔥 Avg Kalori', `${avgKal} kcal/porsi`],
+    ['💰 Total Est.', formatRp(plan.total_biaya_estimasi || 0)],
+    ['🤖 Mode',       plan.mode === 'cheapest' ? '💰 Harga Termurah' : plan.mode === 'schedule' ? '📅 Jadwal H-5' : '🍳 Custom'],
+  ].map(([l,v]) => `<div><p class="text-slate-400 text-xs">${l}</p><p class="text-white font-semibold text-sm">${v}</p></div>`).join('');
+
+  // Menu cards
+  document.getElementById('menu-cards').innerHTML = (plan.menu || []).map(m => `
+  <div class="bg-slate-800 border border-slate-700 rounded-2xl p-5">
+    <div class="flex items-start justify-between mb-3">
+      <div>
+        <h4 class="text-white font-semibold">${m.nama}</h4>
+        <p class="text-slate-400 text-xs">${m.waktu_hidang || ''} ${m.tanggal ? '· '+m.tanggal : ''}</p>
+        ${m.alasan_pilihan ? `<p class="text-green-400 text-xs mt-1">💡 ${m.alasan_pilihan}</p>` : ''}
+      </div>
+      <div class="text-right">
+        <p class="text-green-400 font-bold">${formatRp(m.harga_estimasi_per_porsi)}<span class="text-slate-400 text-xs">/porsi</span></p>
+        <p class="text-orange-400 text-xs">${m.kalori_per_porsi} kcal</p>
+      </div>
+    </div>
+    <div class="flex gap-4 text-xs text-slate-400 mb-3">
+      <span>🥩 <b class="text-slate-200">${m.protein_gram||'-'}g</b></span>
+      <span>🍚 <b class="text-slate-200">${m.karbohidrat_gram||'-'}g</b></span>
+      <span>🫒 <b class="text-slate-200">${m.lemak_gram||'-'}g</b></span>
+    </div>
+    <div class="flex flex-wrap gap-1">
+      ${(m.bahan||[]).map(b => `
+        <span class="text-xs bg-slate-700 rounded-lg px-2 py-1 text-slate-300">
+          ${b.nama} <b class="text-green-300">${(b.total_gram/1000).toFixed(1)}kg</b>
+        </span>`).join('')}
+    </div>
+  </div>`).join('');
+
+  // Raw material table — enriched dengan harga DB
+  const rawItems = plan.total_raw_material || [];
+  // Cari harga DB untuk masing-masing
+  const enriched = await Promise.all(rawItems.map(async r => {
+    const mp = marketPrices.find(p => p.namaItem.toLowerCase() === r.nama.toLowerCase());
+    return {
+      ...r,
+      dbLowest:     mp?.lowestPrice || null,
+      dbSupplier:   mp?.lowestSupplierName || null,
+      dbSupplierId: mp?.lowestSupplierId || null,
+      dbPhone:      mp?.suppliers?.[0]?.supplierPhone || null,
+    };
+  }));
+
+  document.getElementById('raw-tbody').innerHTML = enriched.map(r => {
+    const dbBetter = r.dbLowest && r.dbLowest < (r.harga_referensi_per_kg || r.harga_per_kg || Infinity);
+    const effHarga = r.dbLowest || r.harga_referensi_per_kg || r.harga_per_kg || 0;
+    const qty      = r.total_kg || (r.total_gram ? r.total_gram/1000 : 0);
+    const subtotal = effHarga * qty;
+    return `<tr>
+      <td class="font-medium">${r.nama}</td>
+      <td>${qty.toFixed(2)} ${r.satuan || 'kg'}</td>
+      <td class="text-slate-400">${formatRp(r.harga_referensi_per_kg || r.harga_per_kg || 0)}/${r.satuan||'kg'}</td>
+      <td class="${dbBetter ? 'text-green-400 font-semibold' : 'text-slate-400'}">
+        ${r.dbLowest ? formatRp(r.dbLowest) + '/' + (r.satuan||'kg') + (dbBetter ? ' 🔥' : '') : '<span class="text-slate-600">Belum ada data</span>'}
+      </td>
+      <td>
+        ${r.dbSupplier
+          ? `<span class="text-slate-200 text-xs">${r.dbSupplier}</span>`
+          : '<span class="text-slate-600 text-xs">-</span>'}
+      </td>
+      <td class="font-medium text-green-300">${formatRp(subtotal)}</td>
+    </tr>`;
+  }).join('');
+
+  const total = enriched.reduce((s,r) => {
+    const effH = r.dbLowest || r.harga_referensi_per_kg || r.harga_per_kg || 0;
+    const qty  = r.total_kg || (r.total_gram ? r.total_gram/1000 : 0);
+    return s + effH * qty;
+  }, 0);
+  document.getElementById('total-biaya').textContent = formatRp(total);
+
+  // AI notes / catatan nutrisi
+  const notes = plan.catatan_nutrisi || plan.catatan || '';
+  if (notes) {
+    const el = document.getElementById('ai-notes');
+    el.textContent = notes;
+    el.classList.remove('hidden');
+  }
+}
+
+// ── Save plan ────────────────────────────────────────────────
+window.savePlan = async function() {
+  if (!currentPlan) return;
+  const planId = `PLAN-${Date.now()}`;
+  try {
+    await dbSet(`menu_plans/${user.uid}`, planId, currentPlan);
+    showToast(`Plan tersimpan: ${planId}`, 'success');
+  } catch(e) { showToast('Gagal: ' + e.message, 'error'); }
+};
+
+// ── Go to PO ─────────────────────────────────────────────────
+window.goToPO = function() {
+  if (!currentPlan) return;
+  localStorage.setItem('srcm_draft_po_from_plan', JSON.stringify(currentPlan));
+  window.location.href = '/dapur/po.html?from=plan';
+};
+
+// ── Loading button helper ────────────────────────────────────
+function setLoadingBtn(btn, loading, text) {
+  if (!btn) return;
+  btn.disabled = loading;
+  btn.innerHTML = loading
+    ? `<div class="spinner" style="width:16px;height:16px;border-width:2px"></div> ${text}`
+    : text;
+}
 </script>
 </body>
 </html>
