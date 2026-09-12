@@ -1,0 +1,125 @@
+/* ===================================================
+   SRCM MBG — Custom Styles
+   Tailwind CDN dipakai sebagai utility base.
+   File ini hanya untuk hal yang tidak bisa Tailwind.
+   =================================================== */
+
+/* ── Scrollbar dark ── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: #1e293b; }
+::-webkit-scrollbar-thumb { background: #475569; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #64748b; }
+
+/* ── Animasi fade-in halaman ── */
+.page-fade { animation: pageFade 0.25s ease-in; }
+@keyframes pageFade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+/* ── Spinner ── */
+.spinner {
+  width: 40px; height: 40px;
+  border: 4px solid #16a34a;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Card hover ── */
+.card-hover { transition: all 0.2s ease; }
+.card-hover:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(0,0,0,0.3); }
+
+/* ── Status chips ── */
+.chip { display: inline-flex; align-items: center; padding: 2px 10px; border-radius: 9999px; font-size: 0.75rem; font-weight: 600; }
+.chip-draft     { background: #334155; color: #94a3b8; }
+.chip-pending   { background: #78350f; color: #fcd34d; }
+.chip-approved  { background: #14532d; color: #86efac; }
+.chip-rejected  { background: #7f1d1d; color: #fca5a5; }
+.chip-delivered { background: #1e3a5f; color: #93c5fd; }
+.chip-qc_done   { background: #312e81; color: #c4b5fd; }
+.chip-preparing  { background: #1c1917; color: #d6d3d1; }
+.chip-in_transit { background: #1e3a5f; color: #93c5fd; }
+.chip-arrived    { background: #14532d; color: #86efac; }
+.chip-partial    { background: #78350f; color: #fcd34d; }
+
+/* ── Table ── */
+.tbl { width: 100%; border-collapse: collapse; }
+.tbl th { background: #1e293b; color: #94a3b8; font-size: 0.75rem; text-transform: uppercase; padding: 10px 12px; text-align: left; }
+.tbl td { padding: 10px 12px; border-bottom: 1px solid #1e293b; color: #e2e8f0; font-size: 0.875rem; }
+.tbl tr:hover td { background: #1e293b55; }
+
+/* ── AI output box ── */
+.ai-box {
+  background: linear-gradient(135deg, #0f2a1a 0%, #0f172a 100%);
+  border: 1px solid #16a34a44;
+  border-radius: 12px;
+  padding: 16px;
+  position: relative;
+}
+.ai-box::before {
+  content: '🤖 AI';
+  position: absolute; top: -10px; left: 14px;
+  background: #16a34a; color: white;
+  font-size: 0.7rem; font-weight: 700;
+  padding: 2px 8px; border-radius: 4px;
+}
+
+/* ── Input dark ── */
+.inp {
+  background: #1e293b;
+  border: 1px solid #334155;
+  color: #f1f5f9;
+  border-radius: 8px;
+  padding: 10px 14px;
+  width: 100%;
+  font-size: 0.875rem;
+  transition: border-color 0.2s;
+}
+.inp:focus { outline: none; border-color: #16a34a; }
+.inp::placeholder { color: #475569; }
+
+/* ── Btn primary ── */
+.btn-primary {
+  background: #16a34a; color: white;
+  border: none; border-radius: 8px;
+  padding: 10px 20px; font-size: 0.875rem; font-weight: 600;
+  cursor: pointer; transition: background 0.2s, transform 0.1s;
+}
+.btn-primary:hover { background: #15803d; }
+.btn-primary:active { transform: scale(0.97); }
+.btn-primary:disabled { background: #1e3a2f; color: #4ade80aa; cursor: not-allowed; }
+
+/* ── Btn secondary ── */
+.btn-sec {
+  background: transparent; color: #94a3b8;
+  border: 1px solid #334155; border-radius: 8px;
+  padding: 9px 18px; font-size: 0.875rem; font-weight: 500;
+  cursor: pointer; transition: all 0.2s;
+}
+.btn-sec:hover { border-color: #64748b; color: #f1f5f9; }
+
+/* ── Chat bubble ── */
+.bubble-me    { background: #14532d; color: #dcfce7; border-radius: 16px 16px 4px 16px; padding: 10px 14px; max-width: 75%; }
+.bubble-them  { background: #1e293b; color: #e2e8f0; border-radius: 16px 16px 16px 4px; padding: 10px 14px; max-width: 75%; }
+.bubble-ai    { background: #0f2a1a; color: #86efac; border: 1px solid #16a34a33; border-radius: 12px; padding: 10px 14px; max-width: 85%; }
+
+/* ── Timeline delivery ── */
+.timeline-item { display: flex; gap: 12px; padding-bottom: 20px; position: relative; }
+.timeline-item::before {
+  content: ''; position: absolute; left: 15px; top: 30px;
+  width: 2px; bottom: 0; background: #334155;
+}
+.timeline-item:last-child::before { display: none; }
+.timeline-dot {
+  width: 32px; height: 32px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; font-size: 14px;
+}
+
+/* ── Print (ERP docs) ── */
+@media print {
+  body { background: white !important; color: black !important; }
+  .no-print { display: none !important; }
+  .print-only { display: block !important; }
+  nav, aside { display: none !important; }
+  .print-doc { color: black; font-family: 'Times New Roman', serif; }
+}

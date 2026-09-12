@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="id" class="bg-slate-950">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Purchase Order — SRCM MBG</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/shared/style.css">
+</head>
+<body class="bg-slate-950 text-slate-100">
+<div id="app"></div>
+
+<script type="module">
+  import { requireAuth } from '/shared/auth.js';
+  import { initLayout, showLoading, showToast, formatRp, formatDate, statusChip, openModal, closeModal } from '/shared/components.js';
+  import { createPO, getPOsByDapur, updatePOStatus, dbUpdate } from '/shared/db.js';
+  import { askAI, PROMPTS } from '/shared/ai.js';
+
+  const user = await requireAuth('dapur');
+  showLoading(true, 'Memuat Purchase Order...');
+
+  let allPO = await getPOsByDapur(user.uid);
+
+  // Cek dari menu planner
+  const fromPlan = new URLSearchParams(window.location.search).get('from') === 'plan';
+  let draftItems = [];
+  let draftFromPlan = null;
+  if (fromPlan) {
+    try {
+      draftFromPlan = JSON.parse(localStorage.getItem('srcm_draft_po_from_plan') || 'null');
+      if (draftFromPlan?.total_raw_material) {
+        draftItems = draftFromPlan.total_raw_material.map(r => ({
+          nama: r.nama,
+          satuan: 'kg',
+          qty: r.total_kg || +(r.total_gram/1000).toFixed(2),
+          harga_satuan: r.harga_per_kg,
+          subtotal: r.total_harga
+        }));
+      }
+    } catch {}
+  }
+
+  const mainHtml = `
+  <div class="space-y-6 max-w-5xl">
+    <div class="flex items-center justify-between">
+      <div>
+        <h2 class="text-2xl font-bold text-white">📋 Purchase Order</h2>
+        <p class="text-slate-400 text-sm mt-1">Buat dan kelola pesanan bahan ke supplier</p>
+      </div>
+      <button id="btn-new-po" class="btn-primary">+ Buat PO Baru</button>
+    </div>
+
+    <!-- Form PO (collapse) -->
+    <div id="po-form-wrap" class="${fromPlan ? '' : 'hidden'} bg-slate-800 border border-slate-700 rounded-2xl p-5 space-y-4">
+      <div class="flex items-center justify-between">
+        <h3 class="text-white font-semibold">📝 Form Purchase Order</h3>
+        ${draftFromPlan ? '<span class="text-xs bg-green-900 text-green-300 px-2 py-1 rounded">Dari Menu Planner</span>' : ''}
+      </div>
+
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label class="text-slate-400 text-xs mb-1.5 block">Tanggal Pengiriman</label>
+          <input id="po-delivery-date" type="date" class="inp"
+            value="${new Date(Date.now() + 2*86400000).toISOString().split('T')[0]}">
+        </div>
+        <div>
+          <label class="text-slate-400 text-xs mb-1.5 block">Catatan untuk Supplier</label>
+          <input id="po-notes" type="text" class="inp" placeholder="Contoh: kirim pagi sebelum jam 8">
+        </div>
+      </div>
+
+      <!-- Item list -->
+      <div>
+        <div class="flex items-center justify-between mb-2">
+          <label class="text-slate-400 text-xs">Item Pesanan</label>
+          <button id="btn-add-item" class="text-green-400 text-xs hover:underline">+ Tambah Item</button>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="tbl">
+            <thead><tr><th>Nama Bahan</th><th>Satuan</th><th>Qty</th><th>Harga Satuan</th><th>Subtotal</th><th></th></tr></thead>
+            <tbody id="po-items-tbody">
+            ${draftItems.map((item, i) => renderItemRow(i, item)).join('')}
+            </tbody>
+            <tfoot><tr>
+              <td colspan="4" class="text-right text-white font-semibold py-3 px-3">Total</td>
+              <td id="po-total" class="font-bold text-green-400 py-3 px-3">${formatRp(draftItems.reduce((s,i)=>s+i.subtotal,0))}</td>
+              <td></td>
+            </tr></tfoot>
+          </table>
+        </div>
+      </div>
+
+      <!-- AI Review -->
+      <div id="ai-review-result" class="hidden ai-box"></div>
+
+      <div class="flex gap-3 flex-wrap">
+        <button id="btn-ai-review" class="btn-sec flex items-center gap-2">🤖 Review PO dengan AI</button>
+        <button id="btn-submit-po" class="btn-primary flex items-center gap-2">📤 Submit PO ke Supplier</button>
+        <button id="btn-cancel-form" class="btn-sec text-slate-500">Batal</button>
+      </div>
+    </div>
+
+    <!-- PO List -->
+    <div class="bg-slate-800 border border-slate-700 rounded-2xl overflow-hidden">
+      <div class="p-4 border-b border-slate-700 flex items-center gap-3">
+        <h3 class="text-white font-semibold">Riwayat Purchase Order</h3>
+        <div class="flex gap-2 ml-auto">
+          ${['semua','draft','pending_approval','approved','delivered'].map(s => `
+          <button data-filter="${s}" class="filter-btn text-xs px-3 py-1 rounded-full border
+            ${s==='semua' ? 'border-green-500 text-green-300 bg-green-950' : 'border-slate-700 text-slate-400 hover:border-slate-500'}">
+            ${s === 'semua' ? 'Semua' : s === 'pending_approval' ? 'Pending' : s.charAt(0).toUpperCase()+s.slice(1)}
+          </button>`).join('')}
+        </div>
+      </div>
+      <div id="po-list" class="divide-y divide-slate-700">
+        ${renderPoList(allPO)}
+      </div>
+    </div>
+  </div>`;
+
+  showLoading(false);
+  initLayout('Purchase Order', user, mainHtml);
+
+  // ─── Helpers ───
+  function renderItemRow(i, item = {}) {
+    return `<tr id="item-row-${i}">
+      <td><input type="text" class="inp item-nama" value="${item.nama||''}" placeholder="Nama bahan" style="min-width:130px"></td>
+      <td><select class="inp item-satuan" style="min-width:70px">
+        ${['kg','gram','liter','pcs','ikat','dus'].map(s => `<option ${(item.satuan||'kg')===s?'selected':''}>${s}</option>`).join('')}
+      </select></td>
+      <td><input type="number" class="inp item-qty" value="${item.qty||''}" min="0.1" step="0.1" style="min-width:80px"
+        oninput="updateSubtotal(${i})"></td>
+      <td><input type="number" class="inp item-harga" value="${item.harga_satuan||''}" min="0" step="100" style="min-width:100px"
+        oninput="updateSubtotal(${i})"></td>
+      <td><span id="sub-${i}" class="text-green-300 font-medium">${formatRp(item.subtotal||0)}</span></td>
+      <td><button onclick="removeItemRow(${i})" class="text-red-400 hover:text-red-300 text-lg">×</button></td>
+    </tr>`;
+  }
+
+  window.updateSubtotal = function(i) {
+    const qty   = +document.querySelector(`#item-row-${i} .item-qty`)?.value || 0;
+    const harga = +document.querySelector(`#item-row-${i} .item-harga`)?.value || 0;
+    const sub   = qty * harga;
+    const el    = document.getElementById(`sub-${i}`);
+    if (el) el.textContent = formatRp(sub);
+    recalcTotal();
+  };
+
+  window.removeItemRow = function(i) {
+    document.getElementById(`item-row-${i}`)?.remove();
+    recalcTotal();
+  };
+
+  function recalcTotal() {
+    let total = 0;
+    document.querySelectorAll('#po-items-tbody tr').forEach(row => {
+      const qty   = +row.querySelector('.item-qty')?.value || 0;
+      const harga = +row.querySelector('.item-harga')?.value || 0;
+      total += qty * harga;
+    });
+    document.getElementById('po-total').textContent = formatRp(total);
+  }
+
+  let itemCount = draftItems.length;
+
+  function getPoItems() {
+    const rows = document.querySelectorAll('#po-items-tbody tr');
+    return Array.from(rows).map(row => {
+      const nama   = row.querySelector('.item-nama')?.value.trim();
+      const satuan = row.querySelector('.item-satuan')?.value;
+      const qty    = +row.querySelector('.item-qty')?.value || 0;
+      const harga  = +row.querySelector('.item-harga')?.value || 0;
+      return { nama, satuan, qty, harga_satuan: harga, subtotal: qty * harga };
+    }).filter(i => i.nama && i.qty > 0);
+  }
+
+  function renderPoList(list) {
+    if (!list.length) return '<p class="text-slate-500 text-sm text-center py-8">Belum ada Purchase Order.</p>';
+    return list.map(po => `
+    <div class="p-4 hover:bg-slate-750 cursor-pointer po-row" data-id="${po.poId}">
+      <div class="flex items-center justify-between">
+        <div>
+          <p class="text-white font-medium">${po.poId}</p>
+          <p class="text-slate-400 text-xs mt-0.5">
+            ${formatDate(po.createdAt)} · ${po.items?.length || 0} item · ${formatRp(po.total)}
+          </p>
+          ${po.notes ? `<p class="text-slate-500 text-xs mt-0.5">${po.notes}</p>` : ''}
+        </div>
+        <div class="text-right space-y-1">
+          ${statusChip(po.status)}
+          <p class="text-slate-400 text-xs">Tgl kirim: ${po.deliveryDate || '-'}</p>
+        </div>
+      </div>
+    </div>`).join('');
+  }
+
+  // ─── Event handlers ───
+  document.getElementById('btn-new-po')?.addEventListener('click', () => {
+    const wrap = document.getElementById('po-form-wrap');
+    wrap.classList.toggle('hidden');
+    if (!wrap.classList.contains('hidden') && itemCount === 0) {
+      // Tambah row kosong
+      document.getElementById('po-items-tbody').innerHTML = renderItemRow(0);
+      itemCount = 1;
+    }
+  });
+
+  document.getElementById('btn-cancel-form')?.addEventListener('click', () => {
+    document.getElementById('po-form-wrap').classList.add('hidden');
+  });
+
+  document.getElementById('btn-add-item')?.addEventListener('click', () => {
+    const tbody = document.getElementById('po-items-tbody');
+    tbody.insertAdjacentHTML('beforeend', renderItemRow(itemCount));
+    itemCount++;
+  });
+
+  // AI Review
+  document.getElementById('btn-ai-review')?.addEventListener('click', async () => {
+    const items = getPoItems();
+    if (!items.length) { showToast('Tambahkan item terlebih dahulu', 'error'); return; }
+
+    const btn = document.getElementById('btn-ai-review');
+    btn.disabled = true;
+    btn.innerHTML = '🤖 Menganalisis...';
+
+    const poData = {
+      dapur: user.name,
+      items,
+      total: items.reduce((s,i) => s+i.subtotal, 0),
+      deliveryDate: document.getElementById('po-delivery-date').value,
+      notes: document.getElementById('po-notes').value
+    };
+
+    try {
+      const raw = await askAI(PROMPTS.PO_REVIEW, JSON.stringify(poData), { json: true });
+      const result = JSON.parse(raw);
+      const el = document.getElementById('ai-review-result');
+      const colors = { ok: 'text-green-300', perhatian: 'text-yellow-300', masalah: 'text-red-300' };
+      el.innerHTML = `
+        <p class="font-semibold ${colors[result.status] || 'text-white'} mb-2">
+          ${result.status === 'ok' ? '✅' : result.status === 'perhatian' ? '⚠️' : '❌'} ${result.catatan}
+        </p>
+        ${result.flags?.length ? `<ul class="text-slate-300 text-xs list-disc ml-4 space-y-1">
+          ${result.flags.map(f => `<li>${f}</li>`).join('')}
+        </ul>` : ''}
+        ${result.saran ? `<p class="text-slate-400 text-xs mt-2">💡 ${result.saran}</p>` : ''}`;
+      el.classList.remove('hidden');
+    } catch (e) {
+      showToast('AI review gagal: ' + e.message, 'error');
+    }
+
+    btn.disabled = false;
+    btn.innerHTML = '🤖 Review PO dengan AI';
+  });
+
+  // Submit PO
+  document.getElementById('btn-submit-po')?.addEventListener('click', async () => {
+    const items = getPoItems();
+    if (!items.length) { showToast('Tambahkan item terlebih dahulu', 'error'); return; }
+
+    const deliveryDate = document.getElementById('po-delivery-date').value;
+    const notes = document.getElementById('po-notes').value;
+
+    const btn = document.getElementById('btn-submit-po');
+    btn.disabled = true;
+    btn.textContent = 'Mengirim...';
+
+    try {
+      const po = await createPO(user, items, deliveryDate, notes);
+      await dbUpdate('purchase_orders', po.poId, { status: 'pending_approval' });
+      showToast(`PO ${po.poId} berhasil dikirim ke supplier!`, 'success');
+      localStorage.removeItem('srcm_draft_po_from_plan');
+      // Refresh list
+      allPO = await getPOsByDapur(user.uid);
+      document.getElementById('po-list').innerHTML = renderPoList(allPO);
+      document.getElementById('po-form-wrap').classList.add('hidden');
+    } catch (e) {
+      showToast('Gagal submit PO: ' + e.message, 'error');
+    }
+
+    btn.disabled = false;
+    btn.textContent = '📤 Submit PO ke Supplier';
+  });
+
+  // Filter
+  document.querySelectorAll('.filter-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.filter-btn').forEach(b => {
+        b.className = 'filter-btn text-xs px-3 py-1 rounded-full border border-slate-700 text-slate-400 hover:border-slate-500';
+      });
+      btn.className = 'filter-btn text-xs px-3 py-1 rounded-full border border-green-500 text-green-300 bg-green-950';
+      const filter = btn.dataset.filter;
+      const filtered = filter === 'semua' ? allPO : allPO.filter(p => p.status === filter);
+      document.getElementById('po-list').innerHTML = renderPoList(filtered);
+    });
+  });
+
+  // PO detail modal
+  document.getElementById('po-list').addEventListener('click', e => {
+    const row = e.target.closest('.po-row');
+    if (!row) return;
+    const po = allPO.find(p => p.poId === row.dataset.id);
+    if (!po) return;
+    openModal('po-detail-modal', `
+      <div class="p-5 space-y-4">
+        <div class="flex items-center justify-between">
+          <h3 class="text-white font-bold text-lg">${po.poId}</h3>
+          ${statusChip(po.status)}
+        </div>
+        <p class="text-slate-400 text-sm">Tanggal dibuat: ${formatDate(po.createdAt)}</p>
+        <p class="text-slate-400 text-sm">Tanggal kirim: ${po.deliveryDate || '-'}</p>
+        ${po.notes ? `<p class="text-slate-400 text-sm">Catatan: ${po.notes}</p>` : ''}
+        <div class="overflow-x-auto">
+          <table class="tbl">
+            <thead><tr><th>Bahan</th><th>Qty</th><th>Satuan</th><th>Harga</th><th>Subtotal</th></tr></thead>
+            <tbody>
+              ${(po.items||[]).map(i => `<tr>
+                <td>${i.nama}</td><td>${i.qty}</td><td>${i.satuan}</td>
+                <td>${formatRp(i.harga_satuan)}</td><td class="text-green-300">${formatRp(i.subtotal)}</td>
+              </tr>`).join('')}
+            </tbody>
+            <tfoot><tr>
+              <td colspan="4" class="text-right font-semibold text-white py-2 px-3">Total</td>
+              <td class="font-bold text-green-400 py-2 px-3">${formatRp(po.total)}</td>
+            </tr></tfoot>
+          </table>
+        </div>
+        ${po.aiDraftNotes ? `<div class="ai-box text-sm text-slate-300">${po.aiDraftNotes}</div>` : ''}
+        <button onclick="document.getElementById('po-detail-modal')?.remove()"
+          class="btn-sec w-full">Tutup</button>
+      </div>`);
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="id" class="bg-slate-950">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard Supplier — SRCM MBG</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/shared/style.css">
+</head>
+<body class="bg-slate-950 text-slate-100">
+<div id="app"></div>
+
+<script type="module">
+  import { requireAuth } from '/shared/auth.js';
+  import { initLayout, showLoading, formatRp, formatDate, statusChip } from '/shared/components.js';
+  import { dbGetAll, orderBy } from '/shared/db.js';
+  import { askAI, PROMPTS } from '/shared/ai.js';
+
+  const user = await requireAuth('supplier');
+  showLoading(true, 'Memuat dashboard supplier...');
+
+  const [allPO, allDelivery, allQC] = await Promise.all([
+    dbGetAll('purchase_orders', [orderBy('createdAt','desc')]),
+    dbGetAll('deliveries', [orderBy('createdAt','desc')]),
+    dbGetAll('qc_reports', [orderBy('createdAt','desc')]),
+  ]);
+
+  const now = new Date();
+  const thisMonth = allPO.filter(p => {
+    const d = new Date(p.createdAt);
+    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+  });
+
+  const pending   = allPO.filter(p => p.status === 'pending_approval').length;
+  const revenue   = thisMonth.reduce((s,p) => p.status !== 'rejected' ? s + (p.total||0) : s, 0);
+  const todayDlv  = allDelivery.filter(d => {
+    const est = d.estimasiTiba;
+    return est && est.startsWith(now.toISOString().split('T')[0]);
+  }).length;
+  const activeShip = allDelivery.filter(d => d.status === 'in_transit').length;
+
+  const mainHtml = `
+  <div class="space-y-6">
+    <!-- Header -->
+    <div class="flex items-center justify-between">
+      <div>
+        <h2 class="text-2xl font-bold text-white">Selamat datang, ${user.name} 🏭</h2>
+        <p class="text-slate-400 text-sm mt-1">${now.toLocaleDateString('id-ID', {weekday:'long', day:'numeric', month:'long', year:'numeric'})}</p>
+      </div>
+      <div class="flex gap-3">
+        <a href="/supplier/po-inbox.html" class="btn-primary flex items-center gap-2">
+          📬 PO Inbox ${pending > 0 ? `<span class="bg-red-500 text-white text-xs px-1.5 py-0.5 rounded-full">${pending}</span>` : ''}
+        </a>
+      </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      ${[
+        { label: 'Revenue Bulan Ini', value: formatRp(revenue), sub: `${thisMonth.length} PO`, color: 'text-green-400' },
+        { label: 'PO Pending', value: String(pending), sub: 'Menunggu approval', color: 'text-yellow-400' },
+        { label: 'Pengiriman Aktif', value: String(activeShip), sub: 'Dalam perjalanan', color: 'text-blue-400' },
+        { label: 'Pengiriman Hari Ini', value: String(todayDlv), sub: 'Estimasi tiba', color: 'text-purple-400' },
+      ].map(s => `
+      <div class="bg-slate-800 border border-slate-700 rounded-xl p-4 card-hover">
+        <p class="text-slate-400 text-xs mb-1">${s.label}</p>
+        <p class="text-2xl font-bold ${s.color}">${s.value}</p>
+        <p class="text-slate-500 text-xs mt-1">${s.sub}</p>
+      </div>`).join('')}
+    </div>
+
+    <div class="grid lg:grid-cols-2 gap-6">
+      <!-- PO Terbaru -->
+      <div class="bg-slate-800 border border-slate-700 rounded-xl p-4">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-white font-semibold">📬 PO Terbaru</h3>
+          <a href="/supplier/po-inbox.html" class="text-green-400 text-xs hover:underline">Semua PO →</a>
+        </div>
+        ${allPO.slice(0,5).map(po => `
+        <div class="flex items-center justify-between py-2.5 border-b border-slate-700 last:border-0">
+          <div>
+            <p class="text-white text-sm font-medium">${po.poId}</p>
+            <p class="text-slate-400 text-xs">${po.dapurName} · ${formatRp(po.total)}</p>
+          </div>
+          ${statusChip(po.status)}
+        </div>`).join('')}
+      </div>
+
+      <!-- Pengiriman aktif -->
+      <div class="bg-slate-800 border border-slate-700 rounded-xl p-4">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-white font-semibold">🚛 Status Pengiriman</h3>
+          <a href="/supplier/delivery-mgmt.html" class="text-green-400 text-xs hover:underline">Kelola →</a>
+        </div>
+        ${allDelivery.slice(0,5).map(d => `
+        <div class="flex items-center justify-between py-2.5 border-b border-slate-700 last:border-0">
+          <div>
+            <p class="text-white text-sm font-medium">${d.deliveryId}</p>
+            <p class="text-slate-400 text-xs">PO: ${d.poId} · Est: ${d.estimasiTiba || '-'}</p>
+          </div>
+          ${statusChip(d.status)}
+        </div>`).join('')}
+        ${allDelivery.length === 0 ? '<p class="text-slate-500 text-sm">Belum ada pengiriman.</p>' : ''}
+      </div>
+    </div>
+
+    <!-- AI Insight Supplier -->
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-4">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-white font-semibold">🤖 AI Business Insight</h3>
+        <button id="btn-insight" class="text-green-400 text-xs hover:underline">Refresh</button>
+      </div>
+      <div id="ai-insight" class="text-slate-400 text-sm">
+        <div class="flex items-center gap-2"><div class="spinner" style="width:18px;height:18px;border-width:2px"></div> Menganalisis bisnis...</div>
+      </div>
+    </div>
+
+    <!-- Quick Links -->
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      ${[
+        { href:'/supplier/po-inbox.html',      icon:'📬', label:'Inbox PO'           },
+        { href:'/supplier/delivery-mgmt.html', icon:'🚛', label:'Kelola Pengiriman'  },
+        { href:'/supplier/qc-review.html',     icon:'🔍', label:'Review QC'          },
+        { href:'/supplier/chat.html',          icon:'💬', label:'Chat Dapur'         },
+      ].map(a => `
+        <a href="${a.href}" class="bg-slate-800 border border-slate-700 hover:border-green-700
+          rounded-xl p-4 text-center card-hover transition-colors group">
+          <div class="text-2xl mb-2">${a.icon}</div>
+          <p class="text-slate-300 text-sm group-hover:text-white">${a.label}</p>
+        </a>`).join('')}
+    </div>
+  </div>`;
+
+  showLoading(false);
+  initLayout('Dashboard Supplier', user, mainHtml);
+
+  async function loadInsight() {
+    const el = document.getElementById('ai-insight');
+    el.innerHTML = '<div class="flex items-center gap-2"><div class="spinner" style="width:18px;height:18px;border-width:2px"></div> Menganalisis...</div>';
+    const context = JSON.stringify({
+      total_po_bulan_ini: thisMonth.length,
+      revenue_bulan_ini: revenue,
+      pending_po: pending,
+      active_deliveries: activeShip,
+      qc_count: allQC.length,
+      top_dapur: [...new Set(allPO.map(p => p.dapurName))].slice(0,3)
+    });
+    try {
+      const r = await askAI(PROMPTS.DAILY_INSIGHT, `Data supplier ${user.name}: ${context}`);
+      el.innerHTML = `<div class="ai-box text-sm text-slate-200 leading-relaxed">${r.replace(/\n/g,'<br>')}</div>`;
+    } catch {
+      el.innerHTML = '<p class="text-slate-500 text-xs">AI insight tidak tersedia.</p>';
+    }
+  }
+  loadInsight();
+  document.getElementById('btn-insight')?.addEventListener('click', loadInsight);
+</script>
+</body>
+</html>

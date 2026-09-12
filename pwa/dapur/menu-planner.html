@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="id" class="bg-slate-950">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Menu Planner AI — SRCM MBG</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/shared/style.css">
+</head>
+<body class="bg-slate-950 text-slate-100">
+<div id="app"></div>
+
+<script type="module">
+  import { requireAuth } from '/shared/auth.js';
+  import { initLayout, showLoading, showToast, formatRp } from '/shared/components.js';
+  import { askAI, PROMPTS } from '/shared/ai.js';
+  import { dbSet } from '/shared/db.js';
+
+  const user = await requireAuth('dapur');
+  showLoading(false);
+
+  const mainHtml = `
+  <div class="space-y-6 max-w-4xl">
+    <div>
+      <h2 class="text-2xl font-bold text-white">🍽️ AI Menu Planner</h2>
+      <p class="text-slate-400 text-sm mt-1">AI akan merancang menu, kalori, dan kebutuhan bahan otomatis</p>
+    </div>
+
+    <!-- Form Input -->
+    <div class="bg-slate-800 border border-slate-700 rounded-2xl p-5">
+      <h3 class="text-white font-semibold mb-4">Parameter Menu</h3>
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label class="text-slate-400 text-xs mb-1.5 block">Jumlah Porsi</label>
+          <input id="inp-porsi" type="number" min="1" value="100" class="inp" placeholder="100">
+        </div>
+        <div>
+          <label class="text-slate-400 text-xs mb-1.5 block">Tanggal Hidang</label>
+          <input id="inp-tanggal" type="date" class="inp" value="${new Date().toISOString().split('T')[0]}">
+        </div>
+        <div>
+          <label class="text-slate-400 text-xs mb-1.5 block">Waktu Makan</label>
+          <select id="inp-waktu" class="inp">
+            <option>Sarapan</option>
+            <option selected>Makan Siang</option>
+            <option>Makan Malam</option>
+            <option>Sarapan, Makan Siang, Makan Malam</option>
+          </select>
+        </div>
+        <div>
+          <label class="text-slate-400 text-xs mb-1.5 block">Preferensi Menu</label>
+          <select id="inp-preferensi" class="inp">
+            <option value="bergizi seimbang">Bergizi Seimbang (MBG Standard)</option>
+            <option value="ekonomis">Ekonomis / Budget Terbatas</option>
+            <option value="premium">Premium / Protein Tinggi</option>
+            <option value="vegetarian">Vegetarian</option>
+          </select>
+        </div>
+        <div>
+          <label class="text-slate-400 text-xs mb-1.5 block">Max Kalori / Porsi</label>
+          <input id="inp-kalori" type="number" min="200" value="600" class="inp" placeholder="600">
+        </div>
+        <div>
+          <label class="text-slate-400 text-xs mb-1.5 block">Budget Max / Porsi (Rp)</label>
+          <input id="inp-budget" type="number" min="5000" value="20000" class="inp" placeholder="20000">
+        </div>
+      </div>
+      <div class="mt-4">
+        <label class="text-slate-400 text-xs mb-1.5 block">Catatan Tambahan (opsional)</label>
+        <textarea id="inp-catatan" class="inp" rows="2"
+          placeholder="Contoh: hindari bahan yang butuh cold chain, prioritas bahan lokal..."></textarea>
+      </div>
+      <button id="btn-generate" class="btn-primary mt-4 flex items-center gap-2">
+        <span>🤖</span> Generate Menu dengan AI
+      </button>
+    </div>
+
+    <!-- Output -->
+    <div id="output-section" class="hidden space-y-4">
+      <!-- Summary bar -->
+      <div id="summary-bar" class="bg-slate-800 border border-green-800 rounded-xl p-4 flex flex-wrap gap-6"></div>
+
+      <!-- Menu cards -->
+      <div id="menu-cards" class="space-y-4"></div>
+
+      <!-- Raw Material Table -->
+      <div class="bg-slate-800 border border-slate-700 rounded-2xl p-5">
+        <h3 class="text-white font-semibold mb-4">📦 Total Kebutuhan Raw Material</h3>
+        <div class="overflow-x-auto">
+          <table class="tbl">
+            <thead><tr>
+              <th>Bahan</th><th>Total (kg)</th><th>Harga/kg</th><th>Subtotal</th>
+            </tr></thead>
+            <tbody id="raw-material-tbody"></tbody>
+            <tfoot><tr>
+              <td colspan="3" class="text-right font-semibold text-white py-3 px-3">Total Estimasi</td>
+              <td id="total-biaya" class="font-bold text-green-400 py-3 px-3"></td>
+            </tr></tfoot>
+          </table>
+        </div>
+      </div>
+
+      <!-- AI Notes -->
+      <div id="ai-notes" class="ai-box hidden"></div>
+
+      <!-- Actions -->
+      <div class="flex gap-3">
+        <button id="btn-save-plan" class="btn-primary flex items-center gap-2">💾 Simpan Plan</button>
+        <button id="btn-to-po" class="btn-sec flex items-center gap-2">📋 Buat PO dari Plan ini</button>
+      </div>
+    </div>
+  </div>`;
+
+  initLayout('Menu Planner AI', user, mainHtml);
+
+  let currentPlan = null;
+
+  document.getElementById('btn-generate').addEventListener('click', async () => {
+    const porsi      = document.getElementById('inp-porsi').value;
+    const tanggal    = document.getElementById('inp-tanggal').value;
+    const waktu      = document.getElementById('inp-waktu').value;
+    const preferensi = document.getElementById('inp-preferensi').value;
+    const kalori     = document.getElementById('inp-kalori').value;
+    const budget     = document.getElementById('inp-budget').value;
+    const catatan    = document.getElementById('inp-catatan').value;
+
+    if (!porsi || porsi < 1) { showToast('Isi jumlah porsi terlebih dahulu', 'error'); return; }
+
+    const btn = document.getElementById('btn-generate');
+    btn.disabled = true;
+    btn.innerHTML = '<div class="spinner" style="width:16px;height:16px;border-width:2px;margin:0 auto"></div> AI sedang bekerja...';
+
+    const userMsg = `
+Tolong buat rencana menu untuk:
+- Jumlah porsi: ${porsi} porsi
+- Tanggal hidang: ${tanggal}
+- Waktu makan: ${waktu}
+- Preferensi: ${preferensi}
+- Max kalori per porsi: ${kalori} kcal
+- Budget max per porsi: Rp ${budget}
+- Catatan: ${catatan || 'tidak ada'}
+
+Sesuaikan dengan program MBG Indonesia. Harga bahan sesuai harga pasar Indonesia 2024-2026.`;
+
+    try {
+      const raw = await askAI(PROMPTS.MENU_PLANNER, userMsg, { json: true });
+      const plan = JSON.parse(raw);
+      currentPlan = { ...plan, porsi: +porsi, tanggal, waktu, preferensi, generatedAt: Date.now() };
+      renderOutput(currentPlan);
+      document.getElementById('output-section').classList.remove('hidden');
+    } catch (err) {
+      showToast('Gagal generate menu: ' + err.message, 'error');
+    }
+
+    btn.disabled = false;
+    btn.innerHTML = '<span>🤖</span> Generate Menu dengan AI';
+  });
+
+  function renderOutput(plan) {
+    // Summary bar
+    const sb = document.getElementById('summary-bar');
+    const menuCount = plan.menu?.length || 0;
+    const avgKal    = plan.menu?.reduce((s,m) => s + (m.kalori_per_porsi||0), 0) / (menuCount||1);
+    sb.innerHTML = [
+      ['🍽️ Menu', `${menuCount} item`],
+      ['👥 Porsi', `${plan.porsi} porsi`],
+      ['🔥 Avg Kalori', `${Math.round(avgKal)} kcal/porsi`],
+      ['💰 Total Estimasi', formatRp(plan.total_biaya_estimasi)],
+      ['📅 Tanggal', plan.tanggal],
+    ].map(([label, val]) => `
+      <div>
+        <p class="text-slate-400 text-xs">${label}</p>
+        <p class="text-white font-semibold text-sm">${val}</p>
+      </div>`).join('');
+
+    // Menu cards
+    const mc = document.getElementById('menu-cards');
+    mc.innerHTML = (plan.menu || []).map(m => `
+    <div class="bg-slate-800 border border-slate-700 rounded-2xl p-5">
+      <div class="flex items-start justify-between mb-3">
+        <div>
+          <h4 class="text-white font-semibold text-base">${m.nama}</h4>
+          <p class="text-slate-400 text-xs mt-0.5">${m.waktu_hidang}</p>
+        </div>
+        <div class="text-right">
+          <p class="text-green-400 font-bold">${formatRp(m.harga_estimasi_per_porsi)}<span class="text-slate-400 text-xs font-normal">/porsi</span></p>
+          <p class="text-orange-400 text-xs">${m.kalori_per_porsi} kcal</p>
+        </div>
+      </div>
+
+      <!-- Nutrisi mini -->
+      <div class="flex gap-4 text-xs text-slate-400 mb-3">
+        <span>🥩 Protein: <b class="text-slate-200">${m.protein_gram || '-'}g</b></span>
+        <span>🍚 Karbo: <b class="text-slate-200">${m.karbohidrat_gram || '-'}g</b></span>
+        <span>🫒 Lemak: <b class="text-slate-200">${m.lemak_gram || '-'}g</b></span>
+      </div>
+
+      <!-- Bahan table -->
+      <div class="overflow-x-auto">
+        <table class="tbl text-xs">
+          <thead><tr>
+            <th>Bahan</th><th>Per Porsi</th><th>Total (${plan.porsi} porsi)</th><th>Harga/kg</th><th>Subtotal</th>
+          </tr></thead>
+          <tbody>
+            ${(m.bahan || []).map(b => `
+            <tr>
+              <td class="font-medium">${b.nama}</td>
+              <td>${b.qty_per_porsi_gram}g</td>
+              <td>${(b.total_gram/1000).toFixed(2)} kg</td>
+              <td>${formatRp(b.harga_per_kg)}/kg</td>
+              <td class="font-medium text-green-300">${formatRp(b.subtotal)}</td>
+            </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>`).join('');
+
+    // Raw material table
+    const tbody = document.getElementById('raw-material-tbody');
+    tbody.innerHTML = (plan.total_raw_material || []).map(r => `
+    <tr>
+      <td class="font-medium">${r.nama}</td>
+      <td>${r.total_kg?.toFixed(2) || (r.total_gram/1000).toFixed(2)} kg</td>
+      <td>${formatRp(r.harga_per_kg)}/kg</td>
+      <td class="font-medium text-green-300">${formatRp(r.total_harga)}</td>
+    </tr>`).join('');
+
+    document.getElementById('total-biaya').textContent = formatRp(plan.total_biaya_estimasi);
+
+    // AI notes
+    if (plan.catatan) {
+      const notesEl = document.getElementById('ai-notes');
+      notesEl.textContent = plan.catatan;
+      notesEl.classList.remove('hidden');
+    }
+  }
+
+  // Simpan plan ke Firestore
+  document.getElementById('btn-save-plan')?.addEventListener('click', async () => {
+    if (!currentPlan) return;
+    const planId = `PLAN-${Date.now()}`;
+    try {
+      await dbSet(`menu_plans/${user.uid}`, planId, currentPlan);
+      showToast(`Plan tersimpan: ${planId}`, 'success');
+    } catch (e) {
+      showToast('Gagal menyimpan: ' + e.message, 'error');
+    }
+  });
+
+  // Buat PO dari plan
+  document.getElementById('btn-to-po')?.addEventListener('click', () => {
+    if (!currentPlan) return;
+    localStorage.setItem('srcm_draft_po_from_plan', JSON.stringify(currentPlan));
+    window.location.href = '/dapur/po.html?from=plan';
+  });
+</script>
+</body>
+</html>

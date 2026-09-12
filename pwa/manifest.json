@@ -1,0 +1,14 @@
+{
+  "name": "SRCM MBG — Supply Chain Manager",
+  "short_name": "SRCM MBG",
+  "description": "Platform AI untuk supply chain management dapur MBG",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#0f172a",
+  "theme_color": "#16a34a",
+  "icons": [
+    { "src": "/assets/logo.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/assets/logo.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

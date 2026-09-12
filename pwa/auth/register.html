@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="id" class="bg-slate-950">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Daftar — SRCM MBG</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/shared/style.css">
+</head>
+<body class="bg-slate-950 min-h-screen flex items-center justify-center px-4 py-8">
+
+  <div class="w-full max-w-sm">
+    <!-- Logo -->
+    <div class="text-center mb-8">
+      <div class="text-4xl mb-2">⛓️</div>
+      <h1 class="text-xl font-bold text-white">SRCM MBG</h1>
+      <p class="text-slate-400 text-sm mt-1">Buat akun baru</p>
+    </div>
+
+    <!-- Card -->
+    <div class="bg-slate-900 border border-slate-700 rounded-2xl p-6 shadow-2xl">
+      <h2 class="text-white font-semibold text-lg mb-5">Daftar Akun</h2>
+
+      <form id="form-register" class="space-y-4">
+        <div>
+          <label class="text-slate-400 text-xs mb-1.5 block">Nama Lengkap / Nama Dapur</label>
+          <input id="inp-name" type="text" placeholder="Dapur MBG Cimahi"
+            class="inp" required>
+        </div>
+        <div>
+          <label class="text-slate-400 text-xs mb-1.5 block">Email</label>
+          <input id="inp-email" type="email" placeholder="email@dapur.com"
+            class="inp" required autocomplete="email">
+        </div>
+        <div>
+          <label class="text-slate-400 text-xs mb-1.5 block">Password</label>
+          <input id="inp-password" type="password" placeholder="Minimal 6 karakter"
+            class="inp" required autocomplete="new-password" minlength="6">
+        </div>
+        <div>
+          <label class="text-slate-400 text-xs mb-1.5 block">Tipe Akun</label>
+          <select id="inp-role" class="inp">
+            <option value="dapur">🍽️ Dapur MBG (Pembeli)</option>
+            <option value="supplier">🏭 Supplier (Admin)</option>
+          </select>
+        </div>
+
+        <!-- Kode akses supplier (opsional untuk keamanan) -->
+        <div id="supplier-code-wrap" class="hidden">
+          <label class="text-slate-400 text-xs mb-1.5 block">Kode Akses Supplier</label>
+          <input id="inp-supplier-code" type="password" placeholder="Kode dari admin"
+            class="inp">
+        </div>
+
+        <div id="error-msg" class="text-red-400 text-xs hidden"></div>
+
+        <button type="submit" id="btn-register" class="btn-primary w-full mt-2">
+          Buat Akun
+        </button>
+      </form>
+
+      <p class="text-center text-slate-500 text-xs mt-5">
+        Sudah punya akun?
+        <a href="/auth/login.html" class="text-green-400 hover:text-green-300">Masuk di sini</a>
+      </p>
+    </div>
+  </div>
+
+  <script type="module">
+    import { register } from '/shared/auth.js';
+
+    // Kode akses supplier — ganti sesuai kebutuhan
+    const SUPPLIER_SECRET = 'INSTECH2026';
+
+    const roleSelect   = document.getElementById('inp-role');
+    const supplierWrap = document.getElementById('supplier-code-wrap');
+    const form         = document.getElementById('form-register');
+    const errMsg       = document.getElementById('error-msg');
+    const btn          = document.getElementById('btn-register');
+
+    roleSelect.addEventListener('change', () => {
+      supplierWrap.classList.toggle('hidden', roleSelect.value !== 'supplier');
+    });
+
+    form.addEventListener('submit', async e => {
+      e.preventDefault();
+      errMsg.classList.add('hidden');
+
+      const name     = document.getElementById('inp-name').value.trim();
+      const email    = document.getElementById('inp-email').value.trim();
+      const password = document.getElementById('inp-password').value;
+      const role     = roleSelect.value;
+      const code     = document.getElementById('inp-supplier-code').value;
+
+      // Validasi kode supplier
+      if (role === 'supplier' && code !== SUPPLIER_SECRET) {
+        errMsg.textContent = 'Kode akses supplier tidak valid.';
+        errMsg.classList.remove('hidden');
+        return;
+      }
+
+      btn.disabled = true;
+      btn.textContent = 'Membuat akun...';
+
+      try {
+        const userData = await register(email, password, name, role);
+        window.location.href = `/${userData.role}/dashboard.html`;
+      } catch (err) {
+        const MAP = {
+          'auth/email-already-in-use': 'Email sudah terdaftar.',
+          'auth/weak-password':        'Password minimal 6 karakter.',
+          'auth/invalid-email':        'Format email tidak valid.',
+        };
+        errMsg.textContent = MAP[err.code] || `Error: ${err.message}`;
+        errMsg.classList.remove('hidden');
+        btn.disabled = false;
+        btn.textContent = 'Buat Akun';
+      }
+    });
+  </script>
+</body>
+</html>

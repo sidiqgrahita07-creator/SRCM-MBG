@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="id" class="bg-slate-950">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tracking Pengiriman — SRCM MBG</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/shared/style.css">
+</head>
+<body class="bg-slate-950 text-slate-100">
+<div id="app"></div>
+
+<script type="module">
+  import { requireAuth } from '/shared/auth.js';
+  import { initLayout, showLoading, showToast, formatRp, formatDateTime, statusChip } from '/shared/components.js';
+  import { dbGetAll, dbListen, where, orderBy } from '/shared/db.js';
+
+  const user = await requireAuth('dapur');
+  showLoading(true, 'Memuat data pengiriman...');
+
+  const deliveries = await dbGetAll('deliveries', [where('dapurId','==', user.uid), orderBy('createdAt','desc')]);
+
+  const statusLabel = {
+    preparing:  { icon: '📦', label: 'Dipersiapkan',       color: 'text-slate-300', dot: 'bg-slate-500' },
+    in_transit: { icon: '🚛', label: 'Dalam Pengiriman',   color: 'text-blue-300',  dot: 'bg-blue-500'  },
+    arrived:    { icon: '✅', label: 'Tiba di Tujuan',     color: 'text-green-300', dot: 'bg-green-500' },
+    partial:    { icon: '⚠️', label: 'Tiba Sebagian',      color: 'text-yellow-300',dot: 'bg-yellow-500'},
+  };
+
+  function renderTimeline(history) {
+    return (history || []).map((h, i) => {
+      const info = statusLabel[h.status] || { icon: '📌', label: h.status, color: 'text-slate-300', dot: 'bg-slate-500' };
+      const isLast = i === history.length - 1;
+      return `
+      <div class="timeline-item">
+        <div class="timeline-dot ${info.dot} text-white">${info.icon}</div>
+        <div class="pt-1 flex-1">
+          <p class="text-white text-sm font-medium ${info.color}">${info.label}</p>
+          <p class="text-slate-400 text-xs">${formatDateTime(h.time)}</p>
+          ${h.note ? `<p class="text-slate-300 text-xs mt-0.5">${h.note}</p>` : ''}
+        </div>
+        ${isLast ? '<span class="text-xs chip chip-pending mt-1">Terkini</span>' : ''}
+      </div>`;
+    }).join('');
+  }
+
+  function renderDeliveryCard(d) {
+    const info = statusLabel[d.status] || statusLabel.preparing;
+    return `
+    <div class="bg-slate-800 border border-slate-700 rounded-2xl overflow-hidden">
+      <!-- Header -->
+      <div class="p-4 border-b border-slate-700 flex items-center justify-between">
+        <div>
+          <p class="text-white font-semibold">PO: ${d.poId}</p>
+          <p class="text-slate-400 text-xs mt-0.5">ID Pengiriman: ${d.deliveryId}</p>
+        </div>
+        ${statusChip(d.status)}
+      </div>
+
+      <div class="p-4 grid md:grid-cols-2 gap-4">
+        <!-- Info pengiriman -->
+        <div class="space-y-2">
+          <h4 class="text-slate-300 text-xs uppercase tracking-wider mb-2">Info Pengiriman</h4>
+          ${d.driverName ? `<div class="flex justify-between text-sm">
+            <span class="text-slate-400">Driver</span>
+            <span class="text-white font-medium">${d.driverName}</span>
+          </div>` : ''}
+          ${d.driverPhone ? `<div class="flex justify-between text-sm">
+            <span class="text-slate-400">Telepon</span>
+            <a href="tel:${d.driverPhone}" class="text-green-400">${d.driverPhone}</a>
+          </div>` : ''}
+          ${d.platNomor ? `<div class="flex justify-between text-sm">
+            <span class="text-slate-400">Plat Nomor</span>
+            <span class="text-white font-medium">${d.platNomor}</span>
+          </div>` : ''}
+          ${d.estimasiTiba ? `<div class="flex justify-between text-sm">
+            <span class="text-slate-400">Estimasi Tiba</span>
+            <span class="text-blue-300 font-medium">${d.estimasiTiba}</span>
+          </div>` : ''}
+          ${d.kendala ? `<div class="mt-2 bg-yellow-950 border border-yellow-800 rounded-lg p-3">
+            <p class="text-yellow-400 text-xs font-semibold mb-1">⚠️ Kendala</p>
+            <p class="text-yellow-200 text-sm">${d.kendala}</p>
+          </div>` : ''}
+        </div>
+
+        <!-- Timeline -->
+        <div>
+          <h4 class="text-slate-300 text-xs uppercase tracking-wider mb-3">Timeline Status</h4>
+          <div class="space-y-0">
+            ${renderTimeline(d.statusHistory)}
+          </div>
+        </div>
+      </div>
+
+      <!-- Action: QC setelah arrived -->
+      ${d.status === 'arrived' ? `
+      <div class="px-4 pb-4">
+        <a href="/dapur/qc.html?delivery=${d.deliveryId}&po=${d.poId}"
+          class="btn-primary w-full text-center block">✅ Lakukan QC Barang</a>
+      </div>` : ''}
+    </div>`;
+  }
+
+  const mainHtml = `
+  <div class="space-y-5 max-w-3xl">
+    <div>
+      <h2 class="text-2xl font-bold text-white">🚚 Tracking Pengiriman</h2>
+      <p class="text-slate-400 text-sm mt-1">Pantau status pengiriman barang dari supplier</p>
+    </div>
+
+    ${deliveries.length === 0 ? `
+    <div class="bg-slate-800 border border-slate-700 rounded-2xl p-10 text-center">
+      <p class="text-4xl mb-3">📦</p>
+      <p class="text-slate-300 font-medium">Belum ada pengiriman aktif</p>
+      <p class="text-slate-500 text-sm mt-1">Pengiriman akan muncul setelah PO disetujui supplier</p>
+      <a href="/dapur/po.html" class="btn-primary mt-4 inline-block">Lihat Purchase Order</a>
+    </div>` : deliveries.map(renderDeliveryCard).join('')}
+  </div>`;
+
+  showLoading(false);
+  initLayout('Tracking Pengiriman', user, mainHtml);
+
+  // Realtime listener untuk update status
+  dbListen('deliveries', [where('dapurId','==', user.uid)], updatedList => {
+    // Update status chips & timeline tanpa reload penuh
+    updatedList.forEach(d => {
+      const card = document.querySelector(`[data-delivery="${d.deliveryId}"]`);
+      // Reload sederhana kalau ada perubahan status
+    });
+  });
+</script>
+</body>
+</html>

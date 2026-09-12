@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="id" class="bg-slate-950">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>QC Barang — SRCM MBG</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/shared/style.css">
+</head>
+<body class="bg-slate-950 text-slate-100">
+<div id="app"></div>
+
+<script type="module">
+  import { requireAuth } from '/shared/auth.js';
+  import { initLayout, showLoading, showToast, formatRp, statusChip } from '/shared/components.js';
+  import { dbGet, dbGetAll, createQCReport, dbUpdate, where, orderBy } from '/shared/db.js';
+  import { askAI, PROMPTS } from '/shared/ai.js';
+
+  const user = await requireAuth('dapur');
+  showLoading(true, 'Memuat QC...');
+
+  const params       = new URLSearchParams(window.location.search);
+  const deliveryId   = params.get('delivery');
+  const poIdFromUrl  = params.get('po');
+
+  // Ambil PO & QC history
+  let targetPO = null;
+  let existingQC = null;
+  if (poIdFromUrl) {
+    targetPO   = await dbGet('purchase_orders', poIdFromUrl);
+    existingQC = await dbGet('qc_reports', `QC-${poIdFromUrl}`);
+  }
+
+  const qcHistory = await dbGetAll('qc_reports', [where('dapurId','==', user.uid), orderBy('createdAt','desc')]);
+
+  function renderQCForm(po) {
+    if (!po) return '';
+    return `
+    <div class="bg-slate-800 border border-green-800 rounded-2xl p-5 space-y-4">
+      <div class="flex items-center justify-between">
+        <h3 class="text-white font-semibold">📋 Form QC — ${po.poId}</h3>
+        <span class="text-xs text-slate-400">${po.items?.length || 0} item untuk diperiksa</span>
+      </div>
+      <table class="tbl" id="qc-table">
+        <thead><tr>
+          <th>Bahan</th><th>Dipesan</th><th>Diterima</th><th>Kondisi</th><th>Catatan</th>
+        </tr></thead>
+        <tbody>
+        ${(po.items || []).map((item, i) => `
+          <tr>
+            <td class="font-medium">${item.nama}</td>
+            <td class="text-slate-300">${item.qty} ${item.satuan}</td>
+            <td>
+              <input type="number" id="qc-rec-${i}" class="inp" value="${item.qty}"
+                min="0" step="0.1" style="width:80px">
+            </td>
+            <td>
+              <select id="qc-cond-${i}" class="inp" style="min-width:100px">
+                <option value="baik">✅ Baik</option>
+                <option value="kurang">⚠️ Kurang</option>
+                <option value="rusak">❌ Rusak</option>
+              </select>
+            </td>
+            <td>
+              <input type="text" id="qc-note-${i}" class="inp" placeholder="Catatan..."
+                style="min-width:120px">
+            </td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+
+      <div id="ai-qc-result" class="hidden ai-box"></div>
+
+      <div class="flex gap-3">
+        <button id="btn-ai-qc" class="btn-sec">🤖 Analisis QC dengan AI</button>
+        <button id="btn-submit-qc" class="btn-primary">✅ Simpan Hasil QC</button>
+      </div>
+    </div>`;
+  }
+
+  function renderQCCard(qc) {
+    const icons = { baik: '✅', perlu_perhatian: '⚠️', bermasalah: '❌' };
+    const colors = { baik: 'border-green-800', perlu_perhatian: 'border-yellow-800', bermasalah: 'border-red-800' };
+    const ai = qc.aiSummary ? (typeof qc.aiSummary === 'string' ? JSON.parse(qc.aiSummary) : qc.aiSummary) : null;
+    return `
+    <div class="bg-slate-800 border ${colors[ai?.status_keseluruhan] || 'border-slate-700'} rounded-2xl p-4">
+      <div class="flex items-center justify-between mb-3">
+        <div>
+          <p class="text-white font-medium">QC — ${qc.poId}</p>
+          <p class="text-slate-400 text-xs">${new Date(qc.createdAt).toLocaleDateString('id-ID')}</p>
+        </div>
+        ${ai ? `<div class="text-right">
+          <p class="text-lg">${icons[ai.status_keseluruhan] || '📋'}</p>
+          <p class="text-xs text-slate-300">Skor: <b class="text-green-400">${ai.skor_qc}/100</b></p>
+        </div>` : ''}
+      </div>
+      ${ai?.ringkasan ? `<p class="text-slate-300 text-sm">${ai.ringkasan}</p>` : ''}
+      ${ai?.total_penyesuaian_invoice ? `
+        <div class="mt-2 bg-yellow-950 border border-yellow-800 rounded-lg p-3 text-sm">
+          💰 Penyesuaian invoice: <b class="text-yellow-300">${formatRp(ai.total_penyesuaian_invoice)}</b>
+        </div>` : ''}
+    </div>`;
+  }
+
+  const mainHtml = `
+  <div class="space-y-6 max-w-4xl">
+    <div>
+      <h2 class="text-2xl font-bold text-white">✅ QC Barang</h2>
+      <p class="text-slate-400 text-sm mt-1">Periksa kondisi barang yang diterima dari supplier</p>
+    </div>
+
+    <!-- Form QC (jika dari delivery) -->
+    ${targetPO && !existingQC ? renderQCForm(targetPO) : ''}
+    ${existingQC ? `<div class="bg-green-950 border border-green-800 rounded-xl p-4 text-green-300 text-sm">
+      ✅ QC untuk PO ${poIdFromUrl} sudah pernah dilakukan.
+    </div>` : ''}
+    ${!poIdFromUrl ? `<div class="bg-slate-800 border border-slate-700 rounded-xl p-4">
+      <p class="text-slate-300 text-sm">Pilih pengiriman yang sudah tiba dari halaman
+        <a href="/dapur/delivery.html" class="text-green-400 hover:underline">Tracking Pengiriman</a>
+        untuk memulai QC.</p>
+    </div>` : ''}
+
+    <!-- Riwayat QC -->
+    <div>
+      <h3 class="text-white font-semibold mb-3">📁 Riwayat QC</h3>
+      ${qcHistory.length === 0 ? '<p class="text-slate-500 text-sm">Belum ada riwayat QC.</p>'
+        : qcHistory.map(renderQCCard).join('')}
+    </div>
+  </div>`;
+
+  showLoading(false);
+  initLayout('QC Barang', user, mainHtml);
+
+  // AI QC analysis
+  document.getElementById('btn-ai-qc')?.addEventListener('click', async () => {
+    if (!targetPO) return;
+    const items = collectQCItems(targetPO);
+    const btn = document.getElementById('btn-ai-qc');
+    btn.disabled = true;
+    btn.textContent = '🤖 Menganalisis...';
+
+    try {
+      const raw = await askAI(PROMPTS.QC_ANALYSIS, JSON.stringify({
+        po: { id: targetPO.poId, items: targetPO.items, total: targetPO.total },
+        hasil_qc: items
+      }), { json: true });
+
+      const result = JSON.parse(raw);
+      const el = document.getElementById('ai-qc-result');
+      const icons = { baik: '✅', perlu_perhatian: '⚠️', bermasalah: '❌' };
+      el.innerHTML = `
+        <p class="font-semibold text-white mb-2">${icons[result.status_keseluruhan] || '📋'} ${result.ringkasan}</p>
+        <div class="flex gap-4 text-sm mb-3">
+          <span>Skor QC: <b class="text-green-400">${result.skor_qc}/100</b></span>
+          ${result.total_penyesuaian_invoice ? `<span>Penyesuaian invoice: <b class="text-yellow-400">${formatRp(result.total_penyesuaian_invoice)}</b></span>` : ''}
+        </div>
+        ${result.item_bermasalah?.length ? `
+        <ul class="text-sm space-y-1">
+          ${result.item_bermasalah.map(b => `
+          <li class="text-red-300">⚠️ <b>${b.nama}</b>: ${b.masalah} — ${b.rekomendasi}</li>`).join('')}
+        </ul>` : ''}
+        ${result.rekomendasi_tindakan ? `<p class="text-slate-300 text-xs mt-2">💡 ${result.rekomendasi_tindakan}</p>` : ''}`;
+      el.classList.remove('hidden');
+      el.dataset.result = JSON.stringify(result);
+    } catch (e) {
+      showToast('AI analisis gagal: ' + e.message, 'error');
+    }
+
+    btn.disabled = false;
+    btn.textContent = '🤖 Analisis QC dengan AI';
+  });
+
+  // Submit QC
+  document.getElementById('btn-submit-qc')?.addEventListener('click', async () => {
+    if (!targetPO) return;
+    const items = collectQCItems(targetPO);
+    const aiEl  = document.getElementById('ai-qc-result');
+    const aiSummary = aiEl?.dataset.result || null;
+
+    try {
+      const qc = await createQCReport(targetPO.poId, user.uid, items);
+      if (aiSummary) await dbUpdate('qc_reports', qc.qcId, { aiSummary });
+      // Update status delivery & PO
+      if (deliveryId) await dbUpdate('deliveries', deliveryId, { status: 'qc_done' });
+      await dbUpdate('purchase_orders', targetPO.poId, { status: 'qc_done' });
+      showToast('Hasil QC berhasil disimpan!', 'success');
+      setTimeout(() => window.location.href = '/dapur/qc.html', 1500);
+    } catch (e) {
+      showToast('Gagal simpan QC: ' + e.message, 'error');
+    }
+  });
+
+  function collectQCItems(po) {
+    return (po.items || []).map((item, i) => ({
+      nama:        item.nama,
+      qtyDipesan:  item.qty,
+      qtyDiterima: +document.getElementById(`qc-rec-${i}`)?.value || 0,
+      kondisi:     document.getElementById(`qc-cond-${i}`)?.value || 'baik',
+      catatan:     document.getElementById(`qc-note-${i}`)?.value || '',
+    }));
+  }
+</script>
+</body>
+</html>

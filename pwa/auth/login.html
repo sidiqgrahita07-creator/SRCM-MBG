@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="id" class="bg-slate-950">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login — SRCM MBG</title>
+  <link rel="manifest" href="/manifest.json">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/shared/style.css">
+</head>
+<body class="bg-slate-950 min-h-screen flex items-center justify-center px-4">
+
+  <div class="w-full max-w-sm">
+    <!-- Logo -->
+    <div class="text-center mb-8">
+      <div class="text-4xl mb-2">⛓️</div>
+      <h1 class="text-xl font-bold text-white">SRCM MBG</h1>
+      <p class="text-slate-400 text-sm mt-1">Supply Chain Management Platform</p>
+    </div>
+
+    <!-- Card -->
+    <div class="bg-slate-900 border border-slate-700 rounded-2xl p-6 shadow-2xl">
+      <h2 class="text-white font-semibold text-lg mb-5">Masuk ke Akun</h2>
+
+      <form id="form-login" class="space-y-4">
+        <div>
+          <label class="text-slate-400 text-xs mb-1.5 block">Email</label>
+          <input id="inp-email" type="email" placeholder="email@dapur.com"
+            class="inp" required autocomplete="email">
+        </div>
+        <div>
+          <label class="text-slate-400 text-xs mb-1.5 block">Password</label>
+          <input id="inp-password" type="password" placeholder="••••••••"
+            class="inp" required autocomplete="current-password">
+        </div>
+
+        <div id="error-msg" class="text-red-400 text-xs hidden"></div>
+
+        <button type="submit" id="btn-login" class="btn-primary w-full mt-2">
+          Masuk
+        </button>
+      </form>
+
+      <p class="text-center text-slate-500 text-xs mt-5">
+        Belum punya akun?
+        <a href="/auth/register.html" class="text-green-400 hover:text-green-300">Daftar di sini</a>
+      </p>
+    </div>
+
+    <p class="text-center text-slate-600 text-xs mt-6">
+      © 2026 InsTech · SRCM MBG Platform
+    </p>
+  </div>
+
+  <script type="module">
+    import { login } from '/shared/auth.js';
+    import { getAuth, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
+    import { getFirestore, doc, getDoc } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+    import { firebaseConfig } from '/firebase-config.js';
+
+    const app  = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db   = getFirestore(app);
+
+    // Kalau sudah login, langsung redirect
+    onAuthStateChanged(auth, async user => {
+      if (user) {
+        const snap = await getDoc(doc(db, 'users', user.uid));
+        if (snap.exists()) {
+          window.location.href = `/${snap.data().role}/dashboard.html`;
+        }
+      }
+    });
+
+    const form   = document.getElementById('form-login');
+    const errMsg = document.getElementById('error-msg');
+    const btn    = document.getElementById('btn-login');
+
+    const ERR_MAP = {
+      'auth/user-not-found':    'Email tidak terdaftar.',
+      'auth/wrong-password':    'Password salah.',
+      'auth/invalid-email':     'Format email tidak valid.',
+      'auth/too-many-requests': 'Terlalu banyak percobaan. Coba lagi nanti.',
+      'auth/invalid-credential':'Email atau password salah.',
+    };
+
+    form.addEventListener('submit', async e => {
+      e.preventDefault();
+      errMsg.classList.add('hidden');
+      btn.disabled = true;
+      btn.textContent = 'Memproses...';
+
+      try {
+        const email    = document.getElementById('inp-email').value.trim();
+        const password = document.getElementById('inp-password').value;
+        const userData = await login(email, password);
+        window.location.href = `/${userData.role}/dashboard.html`;
+      } catch (err) {
+        const msg = ERR_MAP[err.code] || `Error: ${err.message}`;
+        errMsg.textContent = msg;
+        errMsg.classList.remove('hidden');
+        btn.disabled = false;
+        btn.textContent = 'Masuk';
+      }
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="id" class="bg-slate-950">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kelola Pengiriman — SRCM MBG</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/shared/style.css">
+</head>
+<body class="bg-slate-950 text-slate-100">
+<div id="app"></div>
+
+<script type="module">
+  import { requireAuth } from '/shared/auth.js';
+  import { initLayout, showLoading, showToast, formatDateTime, statusChip, openModal, closeModal } from '/shared/components.js';
+  import { dbGetAll, dbUpdate, addDeliveryStatus, orderBy } from '/shared/db.js';
+
+  const user = await requireAuth('supplier');
+  showLoading(true, 'Memuat pengiriman...');
+
+  let deliveries = await dbGetAll('deliveries', [orderBy('createdAt','desc')]);
+
+  const statusSteps = [
+    { value: 'preparing',  label: '📦 Dipersiapkan',     next: 'in_transit'  },
+    { value: 'in_transit', label: '🚛 Dalam Pengiriman', next: 'arrived'     },
+    { value: 'arrived',    label: '✅ Tiba',              next: null          },
+    { value: 'partial',    label: '⚠️ Tiba Sebagian',    next: 'arrived'     },
+  ];
+
+  function renderCard(d) {
+    const step = statusSteps.find(s => s.value === d.status);
+    const nextStep = step?.next ? statusSteps.find(s => s.value === step.next) : null;
+    return `
+    <div class="bg-slate-800 border border-slate-700 rounded-2xl p-4 space-y-3">
+      <div class="flex items-center justify-between">
+        <div>
+          <p class="text-white font-semibold">${d.deliveryId}</p>
+          <p class="text-slate-400 text-xs">PO: ${d.poId} · ${d.driverName || 'Driver belum diisi'}</p>
+        </div>
+        ${statusChip(d.status)}
+      </div>
+
+      <div class="grid grid-cols-3 gap-2 text-xs">
+        <div><span class="text-slate-500">Driver</span><br><span class="text-white">${d.driverName || '-'}</span></div>
+        <div><span class="text-slate-500">Plat</span><br><span class="text-white">${d.platNomor || '-'}</span></div>
+        <div><span class="text-slate-500">Est. Tiba</span><br><span class="text-blue-300">${d.estimasiTiba || '-'}</span></div>
+      </div>
+
+      ${d.kendala ? `<div class="bg-yellow-950 border border-yellow-800 rounded-lg px-3 py-2 text-xs text-yellow-300">⚠️ Kendala: ${d.kendala}</div>` : ''}
+
+      <!-- Tombol update status -->
+      <div class="flex gap-2 flex-wrap">
+        ${nextStep ? `<button class="btn-update-status btn-primary text-xs px-3 py-2"
+          data-id="${d.deliveryId}" data-next="${nextStep.value}" data-label="${nextStep.label}">
+          ${nextStep.label}
+        </button>` : ''}
+        ${d.status !== 'arrived' ? `<button class="btn-add-kendala btn-sec text-xs px-3 py-2"
+          data-id="${d.deliveryId}">⚠️ Tambah Kendala</button>` : ''}
+        <button class="btn-history btn-sec text-xs px-3 py-2 ml-auto" data-id="${d.deliveryId}">
+          📋 History
+        </button>
+      </div>
+    </div>`;
+  }
+
+  const mainHtml = `
+  <div class="space-y-5 max-w-4xl">
+    <div>
+      <h2 class="text-2xl font-bold text-white">🚛 Kelola Pengiriman</h2>
+      <p class="text-slate-400 text-sm mt-1">Update status pengiriman — dapur bisa monitoring realtime</p>
+    </div>
+
+    <!-- Filter -->
+    <div class="flex gap-2 flex-wrap">
+      ${['semua','preparing','in_transit','arrived'].map(s => `
+      <button data-filter="${s}" class="filter-btn text-xs px-3 py-1 rounded-full border
+        ${s==='semua' ? 'border-green-500 text-green-300 bg-green-950' : 'border-slate-700 text-slate-400'}">
+        ${s === 'semua' ? 'Semua' : s === 'in_transit' ? 'Dalam Perjalanan' : s.charAt(0).toUpperCase()+s.slice(1)}
+      </button>`).join('')}
+    </div>
+
+    <div id="delivery-list" class="space-y-4">
+      ${deliveries.length ? deliveries.map(renderCard).join('') : '<p class="text-slate-500 text-sm">Belum ada data pengiriman.</p>'}
+    </div>
+  </div>`;
+
+  showLoading(false);
+  initLayout('Kelola Pengiriman', user, mainHtml);
+
+  function bindEvents() {
+    // Update status
+    document.querySelectorAll('.btn-update-status').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const id   = btn.dataset.id;
+        const next = btn.dataset.next;
+        const note = prompt(`Catatan untuk status "${btn.dataset.label}" (opsional):`) || '';
+        btn.disabled = true; btn.textContent = 'Memperbarui...';
+        try {
+          await addDeliveryStatus(id, next, note);
+          deliveries = deliveries.map(d => d.deliveryId === id ? { ...d, status: next } : d);
+          showToast('Status diperbarui!', 'success');
+          refreshList();
+        } catch (e) { showToast('Gagal: ' + e.message, 'error'); }
+      });
+    });
+
+    // Tambah kendala
+    document.querySelectorAll('.btn-add-kendala').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const id = btn.dataset.id;
+        const kendala = prompt('Deskripsi kendala:');
+        if (!kendala) return;
+        try {
+          await dbUpdate('deliveries', id, { kendala });
+          deliveries = deliveries.map(d => d.deliveryId === id ? { ...d, kendala } : d);
+          showToast('Kendala ditambahkan', 'warning');
+          refreshList();
+        } catch (e) { showToast('Gagal: ' + e.message, 'error'); }
+      });
+    });
+
+    // History timeline
+    document.querySelectorAll('.btn-history').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const id = btn.dataset.id;
+        const d  = deliveries.find(x => x.deliveryId === id);
+        if (!d) return;
+        openModal('hist-modal', `
+        <div class="p-5 space-y-4">
+          <h3 class="text-white font-bold">Timeline — ${d.deliveryId}</h3>
+          <div class="space-y-2">
+            ${(d.statusHistory || []).map(h => `
+            <div class="flex gap-3 items-start py-2 border-b border-slate-700 last:border-0">
+              <span class="text-xl">${h.status==='preparing'?'📦':h.status==='in_transit'?'🚛':h.status==='arrived'?'✅':'⚠️'}</span>
+              <div>
+                <p class="text-white text-sm font-medium capitalize">${h.status.replace('_',' ')}</p>
+                <p class="text-slate-400 text-xs">${formatDateTime(h.time)}</p>
+                ${h.note ? `<p class="text-slate-300 text-xs">${h.note}</p>` : ''}
+              </div>
+            </div>`).join('')}
+          </div>
+          <button onclick="closeModal('hist-modal')" class="btn-sec w-full text-sm">Tutup</button>
+        </div>`);
+      });
+    });
+
+    // Filter
+    document.querySelectorAll('.filter-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const f = btn.dataset.filter;
+        document.querySelectorAll('.filter-btn').forEach(b =>
+          b.className = 'filter-btn text-xs px-3 py-1 rounded-full border border-slate-700 text-slate-400');
+        btn.className = 'filter-btn text-xs px-3 py-1 rounded-full border border-green-500 text-green-300 bg-green-950';
+        const filtered = f === 'semua' ? deliveries : deliveries.filter(d => d.status === f);
+        document.getElementById('delivery-list').innerHTML =
+          filtered.length ? filtered.map(renderCard).join('') : '<p class="text-slate-500 text-sm">Tidak ada pengiriman.</p>';
+        bindEvents();
+      });
+    });
+  }
+
+  function refreshList() {
+    document.getElementById('delivery-list').innerHTML =
+      deliveries.length ? deliveries.map(renderCard).join('') : '<p class="text-slate-500 text-sm">Belum ada data pengiriman.</p>';
+    bindEvents();
+  }
+
+  bindEvents();
+</script>
+</body>
+</html>

@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="id" class="bg-slate-950">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Review QC — SRCM MBG</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/shared/style.css">
+</head>
+<body class="bg-slate-950 text-slate-100">
+<div id="app"></div>
+
+<script type="module">
+  import { requireAuth } from '/shared/auth.js';
+  import { initLayout, showLoading, showToast, formatRp, formatDate, statusChip } from '/shared/components.js';
+  import { dbGetAll, orderBy } from '/shared/db.js';
+
+  const user = await requireAuth('supplier');
+  showLoading(true, 'Memuat data QC...');
+
+  const allQC = await dbGetAll('qc_reports', [orderBy('createdAt','desc')]);
+
+  function parseAI(qc) {
+    if (!qc.aiSummary) return null;
+    try { return typeof qc.aiSummary === 'string' ? JSON.parse(qc.aiSummary) : qc.aiSummary; }
+    catch { return null; }
+  }
+
+  function renderQCCard(qc) {
+    const ai = parseAI(qc);
+    const icons = { baik:'✅', perlu_perhatian:'⚠️', bermasalah:'❌' };
+    const colors = { baik:'border-green-700', perlu_perhatian:'border-yellow-700', bermasalah:'border-red-700' };
+
+    return `
+    <div class="bg-slate-800 border ${colors[ai?.status_keseluruhan] || 'border-slate-700'} rounded-2xl p-5 space-y-3">
+      <!-- Header -->
+      <div class="flex items-start justify-between">
+        <div>
+          <p class="text-white font-semibold">QC — ${qc.poId}</p>
+          <p class="text-slate-400 text-xs">Dapur ID: ${qc.dapurId} · ${formatDate(qc.createdAt)}</p>
+        </div>
+        ${ai ? `<div class="text-center">
+          <span class="text-2xl">${icons[ai.status_keseluruhan] || '📋'}</span>
+          <p class="text-xs font-bold ${ai.skor_qc >= 80 ? 'text-green-400' : ai.skor_qc >= 60 ? 'text-yellow-400' : 'text-red-400'}">${ai.skor_qc}/100</p>
+        </div>` : ''}
+      </div>
+
+      ${ai?.ringkasan ? `<p class="text-slate-300 text-sm">${ai.ringkasan}</p>` : ''}
+
+      <!-- Items -->
+      <div class="overflow-x-auto">
+        <table class="tbl text-xs">
+          <thead><tr><th>Bahan</th><th>Dipesan</th><th>Diterima</th><th>Kondisi</th><th>Catatan</th></tr></thead>
+          <tbody>
+          ${(qc.items || []).map(i => `<tr>
+            <td class="font-medium">${i.nama}</td>
+            <td>${i.qtyDipesan}</td>
+            <td class="${i.qtyDiterima < i.qtyDipesan ? 'text-yellow-300' : 'text-green-300'}">${i.qtyDiterima}</td>
+            <td><span class="chip chip-${i.kondisi === 'baik' ? 'approved' : i.kondisi === 'rusak' ? 'rejected' : 'pending'}">${i.kondisi}</span></td>
+            <td class="text-slate-400">${i.catatan || '-'}</td>
+          </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
+
+      <!-- AI detail -->
+      ${ai?.item_bermasalah?.length ? `
+      <div class="bg-red-950 border border-red-800 rounded-lg p-3 space-y-1">
+        <p class="text-red-300 text-xs font-semibold mb-1">Item Bermasalah:</p>
+        ${ai.item_bermasalah.map(b => `
+        <div class="text-xs text-red-200">
+          ⚠️ <b>${b.nama}</b>: ${b.masalah}
+          ${b.dampak_invoice ? `· Penyesuaian: <b>${formatRp(b.dampak_invoice)}</b>` : ''}
+          — <span class="text-yellow-300">${b.rekomendasi}</span>
+        </div>`).join('')}
+      </div>` : ''}
+
+      ${ai?.total_penyesuaian_invoice ? `
+      <div class="flex items-center justify-between bg-yellow-950 border border-yellow-800 rounded-lg px-4 py-2">
+        <span class="text-yellow-300 text-sm font-medium">💰 Penyesuaian Invoice</span>
+        <span class="text-yellow-200 font-bold">${formatRp(ai.total_penyesuaian_invoice)}</span>
+      </div>` : ''}
+    </div>`;
+  }
+
+  const mainHtml = `
+  <div class="space-y-5 max-w-4xl">
+    <div>
+      <h2 class="text-2xl font-bold text-white">🔍 Review QC</h2>
+      <p class="text-slate-400 text-sm mt-1">Hasil pemeriksaan kualitas barang dari semua dapur</p>
+    </div>
+
+    <!-- Summary bar -->
+    <div class="grid grid-cols-3 gap-4">
+      ${[
+        { label:'Total QC', value: allQC.length, color:'text-white' },
+        { label:'QC Bermasalah', value: allQC.filter(q => {
+            const a = parseAI(q); return a?.status_keseluruhan === 'bermasalah';
+          }).length, color:'text-red-400' },
+        { label:'Rata-rata Skor', value: allQC.length ? Math.round(
+            allQC.reduce((s,q) => { const a=parseAI(q); return s+(a?.skor_qc||100); }, 0) / allQC.length
+          ) + '/100' : '-', color:'text-green-400' },
+      ].map(s => `
+      <div class="bg-slate-800 border border-slate-700 rounded-xl p-4 text-center">
+        <p class="text-slate-400 text-xs mb-1">${s.label}</p>
+        <p class="text-2xl font-bold ${s.color}">${s.value}</p>
+      </div>`).join('')}
+    </div>
+
+    <!-- QC list -->
+    <div class="space-y-4">
+      ${allQC.length === 0 ? `
+      <div class="bg-slate-800 border border-slate-700 rounded-2xl p-10 text-center">
+        <p class="text-4xl mb-3">🔍</p>
+        <p class="text-slate-300">Belum ada laporan QC dari dapur</p>
+      </div>` : allQC.map(renderQCCard).join('')}
+    </div>
+  </div>`;
+
+  showLoading(false);
+  initLayout('Review QC', user, mainHtml);
+</script>
+</body>
+</html>

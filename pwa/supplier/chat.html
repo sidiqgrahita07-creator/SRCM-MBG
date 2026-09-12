@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="id" class="bg-slate-950">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chat Dapur — SRCM MBG</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/shared/style.css">
+</head>
+<body class="bg-slate-950 text-slate-100">
+<div id="app"></div>
+
+<script type="module">
+  import { requireAuth } from '/shared/auth.js';
+  import { initLayout, showLoading, showToast } from '/shared/components.js';
+  import { dbGetAll, where, orderBy } from '/shared/db.js';
+  import { askAIStream, PROMPTS } from '/shared/ai.js';
+  import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+  import { getDatabase, ref, push, onChildAdded, get, child }
+    from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
+  import { firebaseConfig } from '/firebase-config.js';
+
+  const user = await requireAuth('supplier');
+  showLoading(true, 'Memuat chat...');
+
+  const app  = initializeApp(firebaseConfig);
+  const rtdb = getDatabase(app);
+
+  // Ambil semua dapur yang punya PO ke supplier ini
+  const allPO = await dbGetAll('purchase_orders', [orderBy('createdAt','desc')]);
+  const dapurMap = {};
+  allPO.forEach(po => {
+    if (po.dapurId && po.dapurName) {
+      dapurMap[po.dapurId] = po.dapurName;
+    }
+  });
+  const dapurList = Object.entries(dapurMap); // [[uid, name], ...]
+
+  let activeChatId = dapurList.length > 0 ? `dapur_${dapurList[0][0]}` : null;
+  let activeUnsubscribe = null;
+
+  function renderSidebar() {
+    if (!dapurList.length) {
+      return `<div class="p-4 text-slate-500 text-sm">Belum ada dapur terhubung.</div>`;
+    }
+    return dapurList.map(([uid, name]) => {
+      const chatId = `dapur_${uid}`;
+      const isActive = chatId === activeChatId;
+      return `<button class="dapur-btn w-full text-left px-4 py-3 text-sm transition-colors
+        ${isActive ? 'bg-green-950 text-green-300 border-r-2 border-green-500' : 'text-slate-300 hover:bg-slate-800'}"
+        data-chatid="${chatId}" data-name="${name}">
+        🍽️ ${name}
+      </button>`;
+    }).join('');
+  }
+
+  const mainHtml = `
+  <div class="flex gap-0 -mx-6 -mt-6" style="height: calc(100vh - 57px);">
+    <!-- Sidebar dapur list -->
+    <div class="w-52 bg-slate-900 border-r border-slate-800 flex flex-col">
+      <div class="p-3 border-b border-slate-800">
+        <p class="text-slate-300 text-xs font-semibold uppercase tracking-wider">Dapur</p>
+      </div>
+      <div id="dapur-list" class="flex-1 overflow-y-auto">
+        ${renderSidebar()}
+      </div>
+    </div>
+
+    <!-- Chat area -->
+    <div class="flex-1 flex flex-col bg-slate-950">
+      <!-- Header chat -->
+      <div class="px-5 py-3 border-b border-slate-800 flex items-center justify-between">
+        <div>
+          <p id="chat-title" class="text-white font-semibold">
+            ${dapurList.length > 0 ? dapurList[0][1] : 'Pilih Dapur'}
+          </p>
+          <p class="text-slate-500 text-xs">Ketik <span class="text-green-400">@ai</span> untuk tanya AI</p>
+        </div>
+      </div>
+
+      <!-- Messages -->
+      <div id="chat-messages" class="flex-1 overflow-y-auto space-y-3 p-5"></div>
+
+      <!-- Input -->
+      <div class="flex gap-2 p-4 border-t border-slate-800">
+        <input id="chat-input" type="text" class="inp flex-1"
+          placeholder="${activeChatId ? 'Ketik pesan...' : 'Pilih dapur dulu...'}"
+          autocomplete="off" ${!activeChatId ? 'disabled' : ''}>
+        <button id="btn-send" class="btn-primary px-5" ${!activeChatId ? 'disabled' : ''}>Kirim</button>
+      </div>
+    </div>
+  </div>`;
+
+  showLoading(false);
+  initLayout('Chat Dapur', user, mainHtml);
+
+  // ─── Chat helpers ───
+  const msgContainer = document.getElementById('chat-messages');
+
+  function renderBubble(msg) {
+    const isMe = msg.senderRole === 'supplier';
+    const isAI = msg.senderRole === 'ai';
+    const wrap = document.createElement('div');
+    wrap.className = `flex ${isMe ? 'justify-end' : 'justify-start'} gap-2`;
+    wrap.innerHTML = `
+      <div class="max-w-[75%]">
+        ${!isMe ? `<p class="text-xs text-slate-400 mb-1">${msg.senderName}</p>` : ''}
+        <div class="${isAI ? 'bubble-ai' : isMe ? 'bubble-me' : 'bubble-them'}">
+          <p class="text-sm leading-relaxed whitespace-pre-wrap">${msg.text}</p>
+        </div>
+        <p class="text-xs text-slate-600 mt-0.5 ${isMe ? 'text-right' : 'text-left'}">
+          ${msg.time ? new Date(msg.time).toLocaleTimeString('id-ID', {hour:'2-digit',minute:'2-digit'}) : ''}
+        </p>
+      </div>`;
+    return wrap;
+  }
+
+  function loadChat(chatId, title) {
+    activeChatId = chatId;
+    document.getElementById('chat-title').textContent = title;
+    msgContainer.innerHTML = '';
+
+    // Unsubscribe sebelumnya
+    if (activeUnsubscribe) { /* onChildAdded tidak bisa unsubscribe mudah, pakai key check */ }
+
+    const chatRef = ref(rtdb, `chats/${chatId}/messages`);
+    onChildAdded(chatRef, snap => {
+      if (snap.ref.parent.toString().includes(chatId)) {
+        msgContainer.appendChild(renderBubble(snap.val()));
+        msgContainer.scrollTop = msgContainer.scrollHeight;
+      }
+    });
+  }
+
+  // Load chat pertama
+  if (activeChatId && dapurList.length > 0) {
+    loadChat(activeChatId, dapurList[0][1]);
+  }
+
+  // Klik dapur list
+  document.getElementById('dapur-list').addEventListener('click', e => {
+    const btn = e.target.closest('.dapur-btn');
+    if (!btn) return;
+    document.querySelectorAll('.dapur-btn').forEach(b =>
+      b.className = b.className.replace('bg-green-950 text-green-300 border-r-2 border-green-500','text-slate-300 hover:bg-slate-800'));
+    btn.className = btn.className.replace('text-slate-300 hover:bg-slate-800','bg-green-950 text-green-300 border-r-2 border-green-500');
+    loadChat(btn.dataset.chatid, btn.dataset.name);
+  });
+
+  // Send
+  async function sendMessage(text, role = 'supplier', name = user.name) {
+    if (!activeChatId) return;
+    const chatRef = ref(rtdb, `chats/${activeChatId}/messages`);
+    await push(chatRef, { text, senderRole: role, senderName: name, senderId: user.uid, time: Date.now() });
+  }
+
+  const input = document.getElementById('chat-input');
+  const btn   = document.getElementById('btn-send');
+
+  async function handleSend() {
+    const text = input.value.trim();
+    if (!text || !activeChatId) return;
+    input.value = '';
+    btn.disabled = true;
+
+    await sendMessage(text);
+
+    if (text.toLowerCase().includes('@ai')) {
+      const aiDiv = document.createElement('div');
+      aiDiv.className = 'flex justify-start gap-2';
+      const bubble = document.createElement('div');
+      bubble.className = 'max-w-[75%]';
+      bubble.innerHTML = '<p class="text-xs text-slate-400 mb-1">🤖 AI Assistant</p><div class="bubble-ai"><p id="ai-str" class="text-sm leading-relaxed"></p></div>';
+      aiDiv.appendChild(bubble);
+      msgContainer.appendChild(aiDiv);
+      msgContainer.scrollTop = msgContainer.scrollHeight;
+
+      const el = document.getElementById('ai-str');
+      let full = '';
+      try {
+        await askAIStream(PROMPTS.CHAT_ASSISTANT, text, chunk => {
+          full += chunk;
+          el.textContent = full;
+          msgContainer.scrollTop = msgContainer.scrollHeight;
+        });
+        await sendMessage(full, 'ai', '🤖 AI Assistant');
+        aiDiv.remove();
+      } catch {
+        el.textContent = 'AI tidak tersedia.';
+      }
+    }
+
+    btn.disabled = false;
+    input.focus();
+  }
+
+  btn.addEventListener('click', handleSend);
+  input.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); handleSend(); } });
+</script>
+</body>
+</html>
