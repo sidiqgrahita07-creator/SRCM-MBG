@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="id" class="bg-slate-950"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Kelola Supplier — SRCM MBG</title><script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="/shared/style.css">
+</head><body class="bg-slate-950 text-slate-100">
+<nav class="bg-slate-900 border-b border-slate-700 px-5 py-3 flex items-center justify-between sticky top-0 z-40">
+  <div class="flex items-center gap-3"><span class="text-green-400 font-bold">⛓️ SRCM MBG</span><span class="text-slate-600">|</span><span class="text-slate-400 text-sm">Admin Panel</span></div>
+  <div class="flex items-center gap-3"><span class="text-slate-200 text-sm">Sidiq — InsTech</span><span class="chip chip-pending text-xs">⚙️ Admin</span><button class="text-slate-500 text-xs border border-slate-700 px-3 py-1 rounded">Keluar</button></div>
+</nav>
+<div class="flex">
+<aside class="w-52 bg-slate-900 min-h-screen border-r border-slate-800 py-3 flex-shrink-0">
+  <a href="/demo/admin-dashboard.html" class="flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-400 hover:bg-slate-800" id="n-adash"><span>📊</span><span>Dashboard</span></a>
+  <a href="/demo/admin-suppliers.html" class="flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-400 hover:bg-slate-800" id="n-sup"><span>🏭</span><span>Supplier</span></a>
+  <a href="#" class="flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-400 hover:bg-slate-800"><span>💰</span><span>Harga Pasar</span></a>
+  <a href="/demo/po-inbox.html" class="flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-400 hover:bg-slate-800"><span>📋</span><span>Semua PO</span></a>
+  <a href="#" class="flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-400 hover:bg-slate-800"><span>💸</span><span>Management Fee</span></a>
+  <a href="#" class="flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-400 hover:bg-slate-800"><span>📲</span><span>WA Log</span></a>
+</aside>
+<main class="flex-1 p-6 page-fade space-y-5">
+  <div class="flex items-center justify-between">
+    <div><h2 class="text-2xl font-bold text-white">🏭 Kelola Supplier</h2>
+    <p class="text-slate-400 text-sm mt-1">Tambah supplier, blast WA minta update harga</p></div>
+    <div class="flex gap-3">
+      <button onclick="alert('Demo: WA terkirim ke 5 supplier!')" class="btn-sec flex items-center gap-2">📲 Blast Semua Supplier</button>
+      <button onclick="document.getElementById('add-form').classList.toggle('hidden')" class="btn-primary">+ Tambah Supplier</button>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-3 gap-4">
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-4 text-center"><p class="text-slate-400 text-xs mb-1">Total Supplier</p><p class="text-2xl font-bold text-white">5</p></div>
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-4 text-center"><p class="text-slate-400 text-xs mb-1">Update Hari Ini</p><p class="text-2xl font-bold text-green-400">3</p></div>
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-4 text-center"><p class="text-slate-400 text-xs mb-1">Belum Update 7 Hari</p><p class="text-2xl font-bold text-yellow-400">2</p></div>
+  </div>
+
+  <!-- Add form -->
+  <div id="add-form" class="hidden bg-slate-800 border border-green-800 rounded-2xl p-5 space-y-4">
+    <h3 class="text-white font-semibold">+ Tambah Supplier Baru</h3>
+    <div class="grid grid-cols-2 gap-3">
+      <div class="col-span-2"><label class="text-slate-400 text-xs mb-1 block">Nama Supplier / Toko</label><input type="text" class="inp" placeholder="UD Sumber Beras"></div>
+      <div><label class="text-slate-400 text-xs mb-1 block">No. WhatsApp</label><input type="tel" class="inp" placeholder="08123456789"></div>
+      <div><label class="text-slate-400 text-xs mb-1 block">Wilayah / Kota</label><input type="text" class="inp" placeholder="Cimahi"></div>
+      <div><label class="text-slate-400 text-xs mb-1 block">Alamat</label><input type="text" class="inp" placeholder="Jl. Pasar No. 5"></div>
+      <div><label class="text-slate-400 text-xs mb-1 block">Lat,Lng (untuk rute)</label><input type="text" class="inp" placeholder="-6.8843,107.5517"></div>
+    </div>
+    <div><label class="text-slate-400 text-xs mb-2 block">Bahan yang dijual</label>
+    <div class="flex flex-wrap gap-2">
+      <label class="flex items-center gap-1.5 text-xs text-slate-300 bg-slate-700 px-3 py-1.5 rounded-lg cursor-pointer"><input type="checkbox" class="accent-green-500"> Beras</label><label class="flex items-center gap-1.5 text-xs text-slate-300 bg-slate-700 px-3 py-1.5 rounded-lg cursor-pointer"><input type="checkbox" class="accent-green-500"> Ayam</label><label class="flex items-center gap-1.5 text-xs text-slate-300 bg-slate-700 px-3 py-1.5 rounded-lg cursor-pointer"><input type="checkbox" class="accent-green-500"> Ikan</label><label class="flex items-center gap-1.5 text-xs text-slate-300 bg-slate-700 px-3 py-1.5 rounded-lg cursor-pointer"><input type="checkbox" class="accent-green-500"> Telur</label><label class="flex items-center gap-1.5 text-xs text-slate-300 bg-slate-700 px-3 py-1.5 rounded-lg cursor-pointer"><input type="checkbox" class="accent-green-500"> Sayuran</label><label class="flex items-center gap-1.5 text-xs text-slate-300 bg-slate-700 px-3 py-1.5 rounded-lg cursor-pointer"><input type="checkbox" class="accent-green-500"> Tahu/Tempe</label><label class="flex items-center gap-1.5 text-xs text-slate-300 bg-slate-700 px-3 py-1.5 rounded-lg cursor-pointer"><input type="checkbox" class="accent-green-500"> Minyak</label><label class="flex items-center gap-1.5 text-xs text-slate-300 bg-slate-700 px-3 py-1.5 rounded-lg cursor-pointer"><input type="checkbox" class="accent-green-500"> Bumbu</label>
+    </div></div>
+    <div class="flex gap-3">
+      <button onclick="alert('Supplier berhasil ditambahkan!')" class="btn-primary">Simpan</button>
+      <button onclick="document.getElementById('add-form').classList.add('hidden')" class="btn-sec">Batal</button>
+    </div>
+  </div>
+
+  <!-- Supplier table -->
+  <div class="bg-slate-800 border border-slate-700 rounded-2xl overflow-hidden">
+    <div class="p-4 border-b border-slate-700"><input type="text" class="inp w-64" placeholder="🔍 Cari supplier..."></div>
+    <div class="overflow-x-auto">
+      <table class="tbl">
+        <thead><tr><th>Nama Supplier</th><th>No. WA</th><th>Bahan</th><th>Rating</th><th>Last Update Harga</th><th>Aksi</th></tr></thead>
+        <tbody>
+          <tr class="hover:bg-slate-750">
+            <td><div><p class="text-white font-medium">UD Sumber Beras</p><p class="text-slate-400 text-xs">Cimahi</p></div></td>
+            <td><a href="#" class="text-green-400 text-sm">📱 0812-3456-7890</a></td>
+            <td class="text-slate-300 text-sm">Beras, Tepung</td>
+            <td><div class="flex gap-0.5 text-yellow-400 text-sm">★★★★★</div></td>
+            <td class="text-slate-300 text-xs">12 Sep 2026, 08:00</td>
+            <td><div class="flex gap-2">
+              <button onclick="alert('WA terkirim ke UD Sumber Beras!')" class="text-xs bg-green-900 text-green-300 px-2 py-1.5 rounded-lg">📲 Minta Harga</button>
+              <button onclick="alert('Harga:
+- Beras: Rp 13.000/kg
+- Tepung: Rp 11.500/kg')" class="text-xs bg-slate-700 text-slate-300 px-2 py-1.5 rounded-lg">📊 Lihat Harga</button>
+            </div></td>
+          </tr>
+          <tr class="hover:bg-slate-750">
+            <td><div><p class="text-white font-medium">Peternakan Maju</p><p class="text-slate-400 text-xs">Bandung</p></div></td>
+            <td><a href="#" class="text-green-400 text-sm">📱 0821-1234-5678</a></td>
+            <td class="text-slate-300 text-sm">Ayam, Telur</td>
+            <td><div class="flex gap-0.5 text-yellow-400 text-sm">★★★★<span class="text-slate-600">★</span></div></td>
+            <td class="text-slate-300 text-xs">12 Sep 2026, 09:30</td>
+            <td><div class="flex gap-2">
+              <button onclick="alert('WA terkirim!')" class="text-xs bg-green-900 text-green-300 px-2 py-1.5 rounded-lg">📲 Minta Harga</button>
+              <button class="text-xs bg-slate-700 text-slate-300 px-2 py-1.5 rounded-lg">📊 Lihat Harga</button>
+            </div></td>
+          </tr>
+          <tr class="hover:bg-slate-750">
+            <td><div><p class="text-white font-medium">Kebun Bu Sari</p><p class="text-slate-400 text-xs">Lembang</p></div></td>
+            <td><a href="#" class="text-green-400 text-sm">📱 0878-9012-3456</a></td>
+            <td class="text-slate-300 text-sm">Sayuran, Bumbu</td>
+            <td><div class="flex gap-0.5 text-yellow-400 text-sm">★★★★★</div></td>
+            <td class="text-slate-300 text-xs">11 Sep 2026, 15:20</td>
+            <td><div class="flex gap-2">
+              <button onclick="alert('WA terkirim!')" class="text-xs bg-green-900 text-green-300 px-2 py-1.5 rounded-lg">📲 Minta Harga</button>
+              <button class="text-xs bg-slate-700 text-slate-300 px-2 py-1.5 rounded-lg">📊 Lihat Harga</button>
+            </div></td>
+          </tr>
+          <tr class="hover:bg-slate-750 opacity-60">
+            <td><div><p class="text-white font-medium">UD Tani Makmur</p><p class="text-slate-400 text-xs">Garut</p></div></td>
+            <td><a href="#" class="text-green-400 text-sm">📱 0856-7890-1234</a></td>
+            <td class="text-slate-300 text-sm">Beras, Sayuran</td>
+            <td><div class="flex gap-0.5 text-yellow-400 text-sm">★★★<span class="text-slate-600">★★</span></div></td>
+            <td class="text-red-400 text-xs">⚠️ 4 Sep 2026 (8 hari lalu)</td>
+            <td><div class="flex gap-2">
+              <button onclick="alert('WA terkirim!')" class="text-xs bg-yellow-900 text-yellow-300 px-2 py-1.5 rounded-lg">📲 Minta Harga !</button>
+              <button class="text-xs bg-slate-700 text-slate-300 px-2 py-1.5 rounded-lg">📊 Lihat Harga</button>
+            </div></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</main>
+</div>
+<script>document.getElementById('n-sup')?.classList.add('bg-green-950','text-green-300','border-r-2','border-green-500','font-medium');</script></body></html>

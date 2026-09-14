@@ -1,153 +1,189 @@
 <!DOCTYPE html>
-<html lang="id" class="bg-slate-950">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Menu Planner AI — SRCM MBG</title>
-
-<script src="https://cdn.tailwindcss.com"></script>
+<html lang="id" class="bg-slate-950"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Menu Planner — SRCM MBG</title><script src="https://cdn.tailwindcss.com"></script>
 <link rel="stylesheet" href="/shared/style.css">
-<script>
-const formatRp = n => 'Rp ' + Number(n).toLocaleString('id-ID');
-const formatDate = ts => new Date(ts).toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'});
-</script>
-
-</head>
-<body class="bg-slate-950 text-slate-100">
-
-<nav class="bg-slate-900 border-b border-slate-700 px-5 py-3 flex items-center justify-between sticky top-0 z-40 no-print">
-  <div class="flex items-center gap-3">
-    <a class="text-green-400 font-bold text-base tracking-tight">⛓️ SRCM MBG</a>
-    <span class="text-slate-600">|</span>
-    <span class="text-slate-400 text-sm" id="page-title">Dashboard</span>
-  </div>
-  <div class="flex items-center gap-3">
-    <span class="text-slate-200 text-sm font-medium">Dapur MBG Cimahi</span>
-    <span class="chip chip-approved text-xs">🍽️ Dapur</span>
-    <button class="text-slate-500 hover:text-red-400 text-xs border border-slate-700 px-3 py-1 rounded">Keluar</button>
-  </div>
+<style>.mode-btn{transition:all .2s}</style>
+</head><body class="bg-slate-950 text-slate-100">
+<nav class="bg-slate-900 border-b border-slate-700 px-5 py-3 flex items-center justify-between sticky top-0 z-40">
+  <div class="flex items-center gap-3"><span class="text-green-400 font-bold">⛓️ SRCM MBG</span><span class="text-slate-600">|</span><span class="text-slate-400 text-sm">Menu Planner AI</span></div>
+  <div class="flex items-center gap-3"><span class="text-slate-200 text-sm">Dapur MBG Cimahi</span><span class="chip chip-approved text-xs">🍽️ Dapur</span><button class="text-slate-500 text-xs border border-slate-700 px-3 py-1 rounded">Keluar</button></div>
 </nav>
-
 <div class="flex">
-
 <aside class="w-52 bg-slate-900 min-h-screen border-r border-slate-800 py-3 flex-shrink-0">
-  <a href="/demo/dapur-dashboard.html" class="flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-400 hover:bg-slate-800 hover:text-white transition-colors" id="nav-dashboard"><span>📊</span><span>Dashboard</span></a>
-  <a href="/demo/menu-planner.html"    class="flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-400 hover:bg-slate-800 hover:text-white transition-colors" id="nav-menu"><span>🍽️</span><span>Menu Planner</span></a>
-  <a href="/demo/po.html"             class="flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-400 hover:bg-slate-800 hover:text-white transition-colors" id="nav-po"><span>📋</span><span>Purchase Order</span></a>
-  <a href="/demo/delivery.html"       class="flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-400 hover:bg-slate-800 hover:text-white transition-colors" id="nav-dlv"><span>🚚</span><span>Pengiriman</span></a>
-  <a href="/demo/qc.html"             class="flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-400 hover:bg-slate-800 hover:text-white transition-colors" id="nav-qc"><span>✅</span><span>QC Barang</span></a>
-  <a href="/demo/chat.html"           class="flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-400 hover:bg-slate-800 hover:text-white transition-colors" id="nav-chat"><span>💬</span><span>Chat Supplier</span></a>
+  <a href="/demo/dapur-dashboard.html" class="flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-400 hover:bg-slate-800">📊 Dashboard</a>
+  <a href="/demo/menu-planner.html"    class="flex items-center gap-2.5 px-4 py-2.5 text-sm bg-green-950 text-green-300 border-r-2 border-green-500 font-medium">🍽️ Menu Planner</a>
+  <a href="/demo/market-prices.html"   class="flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-400 hover:bg-slate-800">💰 Harga Pasar</a>
+  <a href="/demo/po.html"              class="flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-400 hover:bg-slate-800">📋 Purchase Order</a>
+  <a href="/demo/delivery.html"        class="flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-400 hover:bg-slate-800">🚚 Pengiriman</a>
+  <a href="/demo/qc.html"              class="flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-400 hover:bg-slate-800">✅ QC Barang</a>
+  <a href="/demo/chat.html"            class="flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-400 hover:bg-slate-800">💬 Chat Supplier</a>
 </aside>
-
-<main class="flex-1 p-6 page-fade space-y-6 max-w-4xl">
+<main class="flex-1 p-6 page-fade space-y-5 max-w-5xl">
   <div>
     <h2 class="text-2xl font-bold text-white">🍽️ AI Menu Planner</h2>
-    <p class="text-slate-400 text-sm mt-1">AI akan merancang menu, kalori, dan kebutuhan bahan otomatis</p>
+    <p class="text-slate-400 text-sm mt-1">Rencanakan menu H-5 — custom dish, harga termurah, atau jadwal mingguan</p>
   </div>
 
-  <!-- Form -->
-  <div class="bg-slate-800 border border-slate-700 rounded-2xl p-5">
-    <h3 class="text-white font-semibold mb-4">Parameter Menu</h3>
+  <!-- Mode tabs -->
+  <div class="flex gap-2 p-1 bg-slate-800 rounded-xl w-fit">
+    <button onclick="switchMode('custom')" id="btn-custom" class="px-5 py-2 rounded-lg text-sm font-medium bg-green-700 text-white">🍳 Custom Menu</button>
+    <button onclick="switchMode('cheapest')" id="btn-cheapest" class="px-5 py-2 rounded-lg text-sm font-medium text-slate-400">💰 Termurah Hari Ini</button>
+    <button onclick="switchMode('schedule')" id="btn-schedule" class="px-5 py-2 rounded-lg text-sm font-medium text-slate-400">📅 Jadwal H-5</button>
+  </div>
+
+  <!-- Custom Mode -->
+  <div id="panel-custom" class="bg-slate-800 border border-slate-700 rounded-2xl p-5 space-y-4">
+    <h3 class="text-white font-semibold">🍳 Input Menu Kustom</h3>
+    <p class="text-slate-400 text-sm">Tulis nama hidangan. AI breakdown bahan + kalkulasi otomatis.</p>
+    <div>
+      <label class="text-slate-400 text-xs mb-2 block">Nama Hidangan</label>
+      <div id="chips" class="flex flex-wrap gap-2 mb-2">
+        <span class="flex items-center gap-1 bg-green-900 border border-green-700 text-green-200 text-xs rounded-full px-3 py-1">Nasi Putih <button class="font-bold text-green-400" onclick="this.parentElement.remove()">×</button></span>
+        <span class="flex items-center gap-1 bg-green-900 border border-green-700 text-green-200 text-xs rounded-full px-3 py-1">Ayam Goreng Kunyit <button class="font-bold text-green-400" onclick="this.parentElement.remove()">×</button></span>
+        <span class="flex items-center gap-1 bg-green-900 border border-green-700 text-green-200 text-xs rounded-full px-3 py-1">Sambal Terasi <button class="font-bold text-green-400" onclick="this.parentElement.remove()">×</button></span>
+        <span class="flex items-center gap-1 bg-green-900 border border-green-700 text-green-200 text-xs rounded-full px-3 py-1">Cah Kangkung <button class="font-bold text-green-400" onclick="this.parentElement.remove()">×</button></span>
+      </div>
+      <div class="flex gap-2">
+        <input id="inp-dish" type="text" class="inp flex-1" placeholder="Tambah hidangan lain...">
+        <button onclick="addChip()" class="btn-sec px-4">+ Tambah</button>
+      </div>
+      <p class="text-slate-500 text-xs mt-1">Quick add:
+        <span class="text-green-400 cursor-pointer hover:underline" onclick="addPreset('Nasi Putih,Ikan Goreng,Tempe Goreng,Sayur Asem')">Paket Ikan</span> ·
+        <span class="text-green-400 cursor-pointer hover:underline" onclick="addPreset('Nasi Uduk,Ayam Bakar,Lalapan,Sambal')">Paket Nusantara</span>
+      </p>
+    </div>
+    <div class="grid grid-cols-3 gap-4">
+      <div><label class="text-slate-400 text-xs mb-1.5 block">Jumlah Porsi</label><input type="number" value="100" class="inp"></div>
+      <div><label class="text-slate-400 text-xs mb-1.5 block">Waktu Makan</label><select class="inp"><option>Sarapan</option><option selected>Makan Siang</option><option>Makan Malam</option></select></div>
+      <div><label class="text-slate-400 text-xs mb-1.5 block">Tanggal Hidang</label><input type="date" value="2026-09-17" class="inp"></div>
+    </div>
+    <button onclick="showResult()" class="btn-primary flex items-center gap-2">🤖 Generate dengan AI</button>
+  </div>
+
+  <!-- Cheapest Mode -->
+  <div id="panel-cheapest" class="hidden bg-slate-800 border border-slate-700 rounded-2xl p-5 space-y-4">
+    <h3 class="text-white font-semibold">💰 Rekomendasi Menu Termurah</h3>
+    <p class="text-slate-400 text-sm">AI analisis harga pasar terkini → rekomendasikan menu paling hemat + bergizi.</p>
+    <div class="bg-slate-700 border border-slate-600 rounded-xl p-3">
+      <p class="text-xs text-slate-400 mb-2">📊 Harga pasar saat ini (dari DB supplier):</p>
+      <div class="flex flex-wrap gap-2">
+        <span class="text-xs bg-slate-800 border border-slate-600 rounded-lg px-2 py-1 text-slate-300">Beras: <b class="text-green-400">Rp 13.000/kg</b> 🔥</span>
+        <span class="text-xs bg-slate-800 border border-slate-600 rounded-lg px-2 py-1 text-slate-300">Kangkung: <b class="text-green-400">Rp 8.000/kg</b> 🔥</span>
+        <span class="text-xs bg-slate-800 border border-slate-600 rounded-lg px-2 py-1 text-slate-300">Tempe: <b class="text-green-400">Rp 12.000/kg</b></span>
+        <span class="text-xs bg-slate-800 border border-slate-600 rounded-lg px-2 py-1 text-slate-300">Telur: <b class="text-green-400">Rp 27.500/kg</b></span>
+        <span class="text-xs bg-slate-800 border border-slate-600 rounded-lg px-2 py-1 text-slate-300">Ayam: <b class="text-slate-300">Rp 35.500/kg</b></span>
+      </div>
+    </div>
     <div class="grid grid-cols-2 gap-4">
       <div><label class="text-slate-400 text-xs mb-1.5 block">Jumlah Porsi</label><input type="number" value="100" class="inp"></div>
-      <div><label class="text-slate-400 text-xs mb-1.5 block">Tanggal Hidang</label><input type="date" value="2026-09-15" class="inp"></div>
-      <div><label class="text-slate-400 text-xs mb-1.5 block">Waktu Makan</label>
-        <select class="inp"><option>Sarapan</option><option selected>Makan Siang</option><option>Makan Malam</option></select>
-      </div>
-      <div><label class="text-slate-400 text-xs mb-1.5 block">Preferensi</label>
-        <select class="inp"><option selected>Bergizi Seimbang (MBG Standard)</option><option>Ekonomis</option><option>Premium</option></select>
-      </div>
-      <div><label class="text-slate-400 text-xs mb-1.5 block">Max Kalori / Porsi</label><input type="number" value="600" class="inp"></div>
-      <div><label class="text-slate-400 text-xs mb-1.5 block">Budget Max / Porsi (Rp)</label><input type="number" value="20000" class="inp"></div>
+      <div><label class="text-slate-400 text-xs mb-1.5 block">Max Budget / Porsi</label><input type="number" value="18000" class="inp"></div>
     </div>
-    <div class="mt-4"><label class="text-slate-400 text-xs mb-1.5 block">Catatan Tambahan</label>
-      <textarea class="inp" rows="2" placeholder="Contoh: prioritas bahan lokal..."></textarea>
-    </div>
-    <button class="btn-primary mt-4 flex items-center gap-2" onclick="showResult()">🤖 Generate Menu dengan AI</button>
+    <button onclick="showResult()" class="btn-primary flex items-center gap-2">🤖 Cari Menu Termurah</button>
   </div>
 
-  <!-- Output (pre-populated for demo) -->
-  <div id="output-section" class="space-y-4">
-    <!-- Summary -->
+  <!-- Schedule Mode -->
+  <div id="panel-schedule" class="hidden bg-slate-800 border border-slate-700 rounded-2xl p-5 space-y-4">
+    <h3 class="text-white font-semibold">📅 Jadwal Menu H-5</h3>
+    <p class="text-slate-400 text-sm">Rencanakan 5 hari sekaligus. AI hitung total kebutuhan bahan mingguan.</p>
+    <div class="space-y-2">
+      <div class="bg-slate-700 rounded-xl p-3 flex items-center gap-3"><div class="w-24 flex-shrink-0"><p class="text-green-400 text-xs font-bold">H+1 (Sen)</p><p class="text-slate-400 text-xs">13 Sep</p></div><input type="text" class="inp flex-1 text-sm" value="Nasi Putih, Ayam Goreng, Sambal, Cah Kangkung"><input type="number" class="inp w-20 text-sm" value="100"></div>
+      <div class="bg-slate-700 rounded-xl p-3 flex items-center gap-3"><div class="w-24 flex-shrink-0"><p class="text-green-400 text-xs font-bold">H+2 (Sel)</p><p class="text-slate-400 text-xs">14 Sep</p></div><input type="text" class="inp flex-1 text-sm" value="Nasi Putih, Ikan Goreng, Tempe, Sayur Asem"><input type="number" class="inp w-20 text-sm" value="100"></div>
+      <div class="bg-slate-700 rounded-xl p-3 flex items-center gap-3"><div class="w-24 flex-shrink-0"><p class="text-green-400 text-xs font-bold">H+3 (Rab)</p><p class="text-slate-400 text-xs">15 Sep</p></div><input type="text" class="inp flex-1 text-sm" placeholder="Isi menu..."><input type="number" class="inp w-20 text-sm" value="100"></div>
+      <div class="bg-slate-700 rounded-xl p-3 flex items-center gap-3"><div class="w-24 flex-shrink-0"><p class="text-green-400 text-xs font-bold">H+4 (Kam)</p><p class="text-slate-400 text-xs">16 Sep</p></div><input type="text" class="inp flex-1 text-sm" placeholder="Isi menu..."><input type="number" class="inp w-20 text-sm" value="100"></div>
+      <div class="bg-slate-700 rounded-xl p-3 flex items-center gap-3"><div class="w-24 flex-shrink-0"><p class="text-green-400 text-xs font-bold">H+5 (Jum)</p><p class="text-slate-400 text-xs">17 Sep</p></div><input type="text" class="inp flex-1 text-sm" placeholder="Isi menu..."><input type="number" class="inp w-20 text-sm" value="100"></div>
+    </div>
+    <button onclick="showResult()" class="btn-primary flex items-center gap-2">🤖 Generate Semua Jadwal</button>
+  </div>
+
+  <!-- OUTPUT (pre-populated) -->
+  <div id="output" class="space-y-4">
     <div class="bg-slate-800 border border-green-800 rounded-xl p-4 flex flex-wrap gap-6">
-      <div><p class="text-slate-400 text-xs">🍽️ Menu</p><p class="text-white font-semibold text-sm">2 item</p></div>
+      <div><p class="text-slate-400 text-xs">🍽️ Menu</p><p class="text-white font-semibold text-sm">2 hidangan</p></div>
       <div><p class="text-slate-400 text-xs">👥 Porsi</p><p class="text-white font-semibold text-sm">100 porsi</p></div>
       <div><p class="text-slate-400 text-xs">🔥 Avg Kalori</p><p class="text-white font-semibold text-sm">535 kcal/porsi</p></div>
-      <div><p class="text-slate-400 text-xs">💰 Total Estimasi</p><p class="text-white font-semibold text-sm">Rp 1.780.000</p></div>
-      <div><p class="text-slate-400 text-xs">📅 Tanggal</p><p class="text-white font-semibold text-sm">15 Sep 2026</p></div>
+      <div><p class="text-slate-400 text-xs">💰 Total Est.</p><p class="text-white font-semibold text-sm">Rp 1.285.000</p></div>
+      <div><p class="text-slate-400 text-xs">🤖 Mode</p><p class="text-white font-semibold text-sm">🍳 Custom</p></div>
     </div>
 
-    <!-- Menu card 1 -->
     <div class="bg-slate-800 border border-slate-700 rounded-2xl p-5">
       <div class="flex items-start justify-between mb-3">
-        <div>
-          <h4 class="text-white font-semibold text-base">Nasi Ayam Goreng Kunyit</h4>
-          <p class="text-slate-400 text-xs mt-0.5">Makan Siang</p>
-        </div>
-        <div class="text-right">
-          <p class="text-green-400 font-bold">Rp 15.200<span class="text-slate-400 text-xs font-normal">/porsi</span></p>
-          <p class="text-orange-400 text-xs">520 kcal</p>
-        </div>
+        <div><h4 class="text-white font-semibold">Ayam Goreng Kunyit + Nasi Putih + Cah Kangkung + Sambal Terasi</h4>
+        <p class="text-slate-400 text-xs">Makan Siang · 17 Sep 2026</p></div>
+        <div class="text-right"><p class="text-green-400 font-bold">Rp 12.850<span class="text-slate-400 text-xs font-normal">/porsi</span></p><p class="text-orange-400 text-xs">535 kcal</p></div>
       </div>
       <div class="flex gap-4 text-xs text-slate-400 mb-3">
         <span>🥩 Protein: <b class="text-slate-200">32g</b></span>
-        <span>🍚 Karbo: <b class="text-slate-200">58g</b></span>
-        <span>🫒 Lemak: <b class="text-slate-200">12g</b></span>
+        <span>🍚 Karbo: <b class="text-slate-200">62g</b></span>
+        <span>🫒 Lemak: <b class="text-slate-200">14g</b></span>
       </div>
-      <div class="overflow-x-auto">
-        <table class="tbl text-xs">
-          <thead><tr><th>Bahan</th><th>Per Porsi</th><th>Total (100 porsi)</th><th>Harga/kg</th><th>Subtotal</th></tr></thead>
-          <tbody>
-            <tr><td class="font-medium">Beras</td><td>150g</td><td>15 kg</td><td>Rp 14.000/kg</td><td class="font-medium text-green-300">Rp 210.000</td></tr>
-            <tr><td class="font-medium">Ayam potong</td><td>120g</td><td>12 kg</td><td>Rp 38.000/kg</td><td class="font-medium text-green-300">Rp 456.000</td></tr>
-            <tr><td class="font-medium">Minyak goreng</td><td>15ml</td><td>1.5 L</td><td>Rp 20.000/L</td><td class="font-medium text-green-300">Rp 30.000</td></tr>
-            <tr><td class="font-medium">Bawang merah</td><td>10g</td><td>1 kg</td><td>Rp 35.000/kg</td><td class="font-medium text-green-300">Rp 35.000</td></tr>
-          </tbody>
-        </table>
+      <div class="flex flex-wrap gap-1.5">
+        <span class="text-xs bg-slate-700 rounded-lg px-2 py-1 text-slate-300">Beras <b class="text-green-300">15kg</b></span>
+        <span class="text-xs bg-slate-700 rounded-lg px-2 py-1 text-slate-300">Ayam <b class="text-green-300">12kg</b></span>
+        <span class="text-xs bg-slate-700 rounded-lg px-2 py-1 text-slate-300">Kangkung <b class="text-green-300">5kg</b></span>
+        <span class="text-xs bg-slate-700 rounded-lg px-2 py-1 text-slate-300">Cabai <b class="text-green-300">0.5kg</b></span>
+        <span class="text-xs bg-slate-700 rounded-lg px-2 py-1 text-slate-300">Terasi <b class="text-green-300">0.1kg</b></span>
       </div>
     </div>
 
-    <!-- Raw material -->
     <div class="bg-slate-800 border border-slate-700 rounded-2xl p-5">
-      <h3 class="text-white font-semibold mb-4">📦 Total Kebutuhan Raw Material</h3>
+      <h3 class="text-white font-semibold mb-4">📦 Total Kebutuhan Bahan Baku</h3>
       <div class="overflow-x-auto">
         <table class="tbl">
-          <thead><tr><th>Bahan</th><th>Total (kg)</th><th>Harga/kg</th><th>Subtotal</th></tr></thead>
+          <thead><tr><th>Bahan</th><th>Total</th><th>Harga Ref.</th><th>Harga DB Termurah</th><th>Supplier Terbaik</th><th>Subtotal</th></tr></thead>
           <tbody>
-            <tr><td class="font-medium">Beras</td><td>15 kg</td><td>Rp 14.000/kg</td><td class="font-medium text-green-300">Rp 210.000</td></tr>
-            <tr><td class="font-medium">Ayam potong</td><td>12 kg</td><td>Rp 38.000/kg</td><td class="font-medium text-green-300">Rp 456.000</td></tr>
-            <tr><td class="font-medium">Minyak goreng</td><td>1.5 L</td><td>Rp 20.000/L</td><td class="font-medium text-green-300">Rp 30.000</td></tr>
-            <tr><td class="font-medium">Sayuran mix</td><td>8 kg</td><td>Rp 12.000/kg</td><td class="font-medium text-green-300">Rp 96.000</td></tr>
-            <tr><td class="font-medium">Telur</td><td>5 kg</td><td>Rp 28.000/kg</td><td class="font-medium text-green-300">Rp 140.000</td></tr>
+            <tr><td class="font-medium">Beras</td><td>15 kg</td><td class="text-slate-400">Rp 14.000/kg</td><td class="text-green-400 font-semibold">Rp 13.000/kg 🔥</td><td class="text-slate-200 text-xs">UD Sumber Beras</td><td class="font-medium text-green-300">Rp 195.000</td></tr>
+            <tr><td class="font-medium">Ayam Broiler</td><td>12 kg</td><td class="text-slate-400">Rp 38.000/kg</td><td class="text-green-400 font-semibold">Rp 35.500/kg 🔥</td><td class="text-slate-200 text-xs">Peternakan Maju</td><td class="font-medium text-green-300">Rp 426.000</td></tr>
+            <tr><td class="font-medium">Kangkung</td><td>5 kg</td><td class="text-slate-400">Rp 10.000/kg</td><td class="text-green-400 font-semibold">Rp 8.000/kg 🔥</td><td class="text-slate-200 text-xs">Kebun Bu Sari</td><td class="font-medium text-green-300">Rp 40.000</td></tr>
+            <tr><td class="font-medium">Bawang Merah</td><td>1 kg</td><td class="text-slate-400">Rp 35.000/kg</td><td class="text-slate-400">Belum ada data</td><td class="text-slate-600 text-xs">-</td><td class="font-medium text-green-300">Rp 35.000</td></tr>
           </tbody>
-          <tfoot><tr>
-            <td colspan="3" class="text-right font-semibold text-white py-3 px-3">Total Estimasi</td>
-            <td class="font-bold text-green-400 py-3 px-3">Rp 1.780.000</td>
-          </tr></tfoot>
+          <tfoot><tr><td colspan="5" class="text-right font-semibold text-white py-3 px-3">Total Estimasi</td><td class="font-bold text-green-400 py-3 px-3">Rp 1.285.000</td></tr></tfoot>
         </table>
       </div>
     </div>
 
-    <!-- AI notes -->
-    <div class="ai-box text-sm text-slate-200 leading-relaxed">
-      Menu bergizi seimbang sesuai standar MBG dengan protein hewani 32g/porsi (melebihi target 28g). Beras lokal Cianjur direkomendasikan. Pertimbangkan tambah lalapan segar untuk serat dan vitamin.
-    </div>
+    <div class="ai-box text-sm text-slate-200">Menu bergizi seimbang sesuai standar MBG. Dengan harga DB supplier, hemat Rp 62.500 dibanding harga referensi pasar! Kangkung sedang di harga terendah, manfaatkan.</div>
 
     <div class="flex gap-3">
       <button class="btn-primary flex items-center gap-2">💾 Simpan Plan</button>
-      <button class="btn-sec flex items-center gap-2" onclick="window.location='/demo/po.html'">📋 Buat PO dari Plan ini</button>
+      <button onclick="window.location='/demo/po.html'" class="btn-sec flex items-center gap-2">📋 Buat PO dari Plan</button>
+      <a href="/demo/market-prices.html" class="btn-sec flex items-center gap-2">📊 Lihat Harga Pasar</a>
     </div>
   </div>
 </main>
 </div>
+
 <script>
-document.getElementById('nav-menu').className = document.getElementById('nav-menu').className.replace('text-slate-400 hover:bg-slate-800 hover:text-white','bg-green-950 text-green-300 border-r-2 border-green-500 font-medium');
+function switchMode(mode) {
+  ['custom','cheapest','schedule'].forEach(m => {
+    document.getElementById('panel-'+m).classList.add('hidden');
+    document.getElementById('btn-'+m).className = 'px-5 py-2 rounded-lg text-sm font-medium text-slate-400';
+  });
+  document.getElementById('panel-'+mode).classList.remove('hidden');
+  document.getElementById('btn-'+mode).className = 'px-5 py-2 rounded-lg text-sm font-medium bg-green-700 text-white';
+}
+function addChip() {
+  const v = document.getElementById('inp-dish').value.trim();
+  if (!v) return;
+  const chip = document.createElement('span');
+  chip.className = 'flex items-center gap-1 bg-green-900 border border-green-700 text-green-200 text-xs rounded-full px-3 py-1';
+  chip.innerHTML = v + ' <button class="font-bold text-green-400" onclick="this.parentElement.remove()">×</button>';
+  document.getElementById('chips').appendChild(chip);
+  document.getElementById('inp-dish').value = '';
+}
+function addPreset(str) {
+  str.split(',').forEach(s => {
+    const chip = document.createElement('span');
+    chip.className = 'flex items-center gap-1 bg-green-900 border border-green-700 text-green-200 text-xs rounded-full px-3 py-1';
+    chip.innerHTML = s.trim() + ' <button class="font-bold text-green-400" onclick="this.parentElement.remove()">×</button>';
+    document.getElementById('chips').appendChild(chip);
+  });
+}
 function showResult() {
   const btn = event.target;
-  btn.innerHTML = '<div class="spinner" style="width:16px;height:16px;border-width:2px;margin:0 auto"></div> AI sedang bekerja...';
   btn.disabled = true;
-  setTimeout(() => { btn.innerHTML = '🤖 Generate Menu dengan AI'; btn.disabled = false; }, 2000);
+  btn.innerHTML = '<div style="width:16px;height:16px;border:2px solid #4ade80;border-top-color:transparent;border-radius:50%;animation:spin .7s linear infinite;display:inline-block;margin-right:6px"></div> AI sedang bekerja...';
+  setTimeout(() => { btn.disabled = false; btn.innerHTML = '🤖 Generate'; document.getElementById('output').scrollIntoView({behavior:'smooth'}); }, 2000);
 }
 </script>
-</body>
-</html>
+</body></html>

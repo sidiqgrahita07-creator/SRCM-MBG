@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="id" class="bg-slate-950"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Update Harga — SRCM MBG</title><script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="/shared/style.css">
+</head><body class="bg-slate-950 text-slate-100">
+<div class="min-h-screen flex items-center justify-center px-4 py-8">
+  <div class="w-full max-w-lg">
+    <div class="text-center mb-6">
+      <div class="text-4xl mb-2">⛓️</div>
+      <h1 class="text-xl font-bold text-white">SRCM MBG</h1>
+      <p class="text-slate-400 text-sm">Form Update Harga Supplier</p>
+    </div>
+    <div class="bg-slate-800 border border-slate-700 rounded-2xl p-5 space-y-4">
+      <h2 class="text-white font-bold text-lg">Update Harga Bahan</h2>
+      <p class="text-slate-400 text-sm">Halo <b class="text-white">UD Sumber Beras</b>! Mohon update harga bahan minggu ini.</p>
+      <div class="space-y-3">
+        <div class="bg-slate-700 rounded-xl p-3">
+          <div class="flex items-center justify-between mb-2">
+            <div><p class="text-white font-medium text-sm">Beras</p><p class="text-slate-400 text-xs">per kg</p></div>
+            <label class="flex items-center gap-1.5 text-xs text-slate-400"><input type="checkbox" checked class="accent-green-500"> Ada stok</label>
+          </div>
+          <div class="flex gap-2 items-center">
+            <span class="text-slate-400 text-sm">Rp</span>
+            <input type="number" class="inp flex-1" placeholder="Harga per kg" value="13000">
+            <span class="text-slate-400 text-sm">/kg</span>
+          </div>
+          <input type="text" class="inp text-xs mt-2" placeholder="Catatan (opsional): grade, kondisi...">
+        </div>
+        <div class="bg-slate-700 rounded-xl p-3">
+          <div class="flex items-center justify-between mb-2">
+            <div><p class="text-white font-medium text-sm">Tepung Terigu</p><p class="text-slate-400 text-xs">per kg</p></div>
+            <label class="flex items-center gap-1.5 text-xs text-slate-400"><input type="checkbox" checked class="accent-green-500"> Ada stok</label>
+          </div>
+          <div class="flex gap-2 items-center">
+            <span class="text-slate-400 text-sm">Rp</span>
+            <input type="number" class="inp flex-1" placeholder="Harga per kg" value="11500">
+            <span class="text-slate-400 text-sm">/kg</span>
+          </div>
+        </div>
+        <div class="bg-slate-700 rounded-xl p-3 opacity-60">
+          <div class="flex items-center justify-between mb-2">
+            <div><p class="text-white font-medium text-sm">Gula Pasir</p><p class="text-slate-400 text-xs">per kg</p></div>
+            <label class="flex items-center gap-1.5 text-xs text-slate-400"><input type="checkbox" class="accent-green-500"> Ada stok</label>
+          </div>
+          <div class="flex gap-2 items-center">
+            <span class="text-slate-400 text-sm">Rp</span>
+            <input type="number" class="inp flex-1" placeholder="Kosongkan jika tidak ada stok" disabled>
+            <span class="text-slate-400 text-sm">/kg</span>
+          </div>
+        </div>
+      </div>
+      <button onclick="this.textContent='✅ Terima kasih! Harga berhasil dikirim.';this.disabled=true;this.className='w-full py-3 rounded-xl text-base font-semibold bg-green-950 border border-green-700 text-green-300'"
+        class="btn-primary w-full text-base py-3">✅ Kirim Update Harga</button>
+    </div>
+    <p class="text-center text-slate-600 text-xs mt-4">Form ini dikirim melalui platform SRCM MBG via WhatsApp.</p>
+  </div>
+</div>
+</body></html>

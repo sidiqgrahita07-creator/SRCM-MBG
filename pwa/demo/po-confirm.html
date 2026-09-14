@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="id" class="bg-slate-950"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Konfirmasi PO — SRCM MBG</title><script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="/shared/style.css">
+</head><body class="bg-slate-950 text-slate-100">
+<div class="min-h-screen flex items-center justify-center px-4 py-8">
+  <div class="w-full max-w-md">
+    <div class="text-center mb-6">
+      <div class="text-4xl mb-2">⛓️</div>
+      <h1 class="text-xl font-bold text-white">SRCM MBG</h1>
+      <p class="text-slate-400 text-sm">Konfirmasi Purchase Order</p>
+    </div>
+    <div class="bg-slate-800 border border-slate-700 rounded-2xl p-5 space-y-4">
+      <div class="flex items-center justify-between">
+        <h2 class="text-white font-bold text-lg">PO-20260912-A3F</h2>
+        <span class="chip chip-pending">Menunggu Konfirmasi</span>
+      </div>
+      <div class="grid grid-cols-2 gap-2 text-sm">
+        <div><span class="text-slate-400">Dari:</span> <span class="text-white">Dapur MBG Cimahi</span></div>
+        <div><span class="text-slate-400">Tgl Kirim:</span> <span class="text-blue-300">14 Sep 2026</span></div>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="tbl">
+          <thead><tr><th>Bahan</th><th>Qty</th><th>Satuan</th><th>Harga</th><th>Subtotal</th></tr></thead>
+          <tbody>
+            <tr><td>Beras</td><td>15</td><td>kg</td><td>Rp 13.000</td><td class="text-green-300">Rp 195.000</td></tr>
+            <tr><td>Tepung Terigu</td><td>10</td><td>kg</td><td>Rp 11.500</td><td class="text-green-300">Rp 115.000</td></tr>
+          </tbody>
+          <tfoot><tr><td colspan="4" class="text-right font-semibold text-white py-2 px-3">Total</td><td class="font-bold text-green-400 py-2 px-3">Rp 310.000</td></tr></tfoot>
+        </table>
+      </div>
+      <div class="bg-slate-700 rounded-xl p-3 text-slate-300 text-sm">📝 Kirim sebelum jam 08:00 pagi</div>
+      <textarea class="inp" rows="2" placeholder="Catatan (opsional): ada perubahan harga, sebagian stok, dll..."></textarea>
+      <div id="actions" class="flex gap-3">
+        <button onclick="document.getElementById('actions').innerHTML='<div class=\'w-full bg-green-950 border border-green-700 rounded-xl p-4 text-center\'><p class=\'text-2xl mb-1\'>✅</p><p class=\'text-green-300 font-semibold\'>PO Dikonfirmasi</p><p class=\'text-slate-400 text-sm mt-1\'>Tim dapur akan menghubungi Anda. Terima kasih!</p></div>'"
+          class="btn-primary flex-1">✅ Konfirmasi Sanggup Kirim</button>
+        <button onclick="document.getElementById('actions').innerHTML='<p class=\'text-yellow-300 text-sm text-center w-full\'>⚠️ Respon diterima. Admin akan carikan alternatif.</p>'"
+          class="bg-red-900 text-red-300 border border-red-800 flex-1 py-2.5 rounded-xl text-sm">❌ Tidak Bisa</button>
+      </div>
+    </div>
+  </div>
+</div>
+</body></html>

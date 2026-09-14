@@ -8,46 +8,50 @@
   <link rel="stylesheet" href="/shared/style.css">
   <style>
     body { background: #0f172a; font-family: system-ui, sans-serif; margin: 0; }
-    iframe { border: none; width: 100%; height: calc(100vh - 58px); display: block; }
-    .tab { cursor: pointer; padding: 8px 14px; font-size: 12px; border-bottom: 2px solid transparent; white-space: nowrap; transition: all 0.15s; }
+    iframe { border: none; width: 100%; height: calc(100vh - 62px); display: block; }
+    .tab { cursor: pointer; padding: 6px 12px; font-size: 11px; border-bottom: 2px solid transparent; white-space: nowrap; transition: all 0.15s; flex-shrink: 0; }
     .tab.active { color: #4ade80; border-color: #4ade80; }
     .tab:not(.active) { color: #64748b; }
     .tab:not(.active):hover { color: #cbd5e1; }
-    .tab-group { color: #334155; font-size: 10px; padding: 0 8px; align-self: center; }
+    .sep { color: #1e293b; padding: 0 4px; font-size: 18px; line-height: 62px; flex-shrink: 0; }
+    .grp { color: #334155; font-size: 9px; text-transform: uppercase; letter-spacing: .05em; padding: 0 6px; line-height: 62px; flex-shrink: 0; }
   </style>
 </head>
 <body>
-  <!-- Tab bar -->
-  <div class="bg-slate-900 border-b border-slate-700 flex items-center px-3 overflow-x-auto" style="height:58px; gap:0">
-    <span class="text-green-400 font-bold text-sm mr-4 whitespace-nowrap flex-shrink-0">⛓️ SRCM MBG</span>
-    
-    <span class="tab-group flex-shrink-0">AUTH</span>
-    <div class="tab active flex-shrink-0" data-url="/demo/login.html">🔐 Login</div>
-    <div class="tab flex-shrink-0" data-url="/demo/register.html">📝 Register</div>
-    
-    <span class="tab-group flex-shrink-0 ml-2">│ DAPUR</span>
-    <div class="tab flex-shrink-0" data-url="/demo/dapur-dashboard.html">📊 Dashboard</div>
-    <div class="tab flex-shrink-0" data-url="/demo/menu-planner.html">🍽️ Menu Planner</div>
-    <div class="tab flex-shrink-0" data-url="/demo/po.html">📋 Purchase Order</div>
-    <div class="tab flex-shrink-0" data-url="/demo/delivery.html">🚚 Pengiriman</div>
-    <div class="tab flex-shrink-0" data-url="/demo/qc.html">✅ QC Barang</div>
-    <div class="tab flex-shrink-0" data-url="/demo/chat.html">💬 Chat</div>
-    
-    <span class="tab-group flex-shrink-0 ml-2">│ SUPPLIER</span>
-    <div class="tab flex-shrink-0" data-url="/demo/supplier-dashboard.html">📊 Dashboard</div>
-    <div class="tab flex-shrink-0" data-url="/demo/po-inbox.html">📬 PO Inbox</div>
-    <div class="tab flex-shrink-0" data-url="/demo/delivery-mgmt.html">🚛 Pengiriman</div>
-    <div class="tab flex-shrink-0" data-url="/demo/qc-review.html">🔍 Review QC</div>
-    <div class="tab flex-shrink-0" data-url="/demo/supplier-chat.html">💬 Chat</div>
+  <div class="bg-slate-900 border-b border-slate-800 flex items-center px-3 overflow-x-auto" style="height:62px; gap:0">
+    <span class="text-green-400 font-bold text-sm mr-3 flex-shrink-0">⛓️ SRCM MBG</span>
+
+    <span class="grp">Auth</span>
+    <div class="tab active" data-url="/demo/login.html">🔐 Login</div>
+    <div class="tab" data-url="/demo/register.html">📝 Register</div>
+
+    <span class="sep">|</span>
+    <span class="grp">Dapur</span>
+    <div class="tab" data-url="/demo/dapur-dashboard.html">📊 Dashboard</div>
+    <div class="tab" data-url="/demo/menu-planner.html">🍽️ Menu Planner</div>
+    <div class="tab" data-url="/demo/market-prices.html">💰 Harga Pasar</div>
+    <div class="tab" data-url="/demo/po.html">📋 Purchase Order</div>
+    <div class="tab" data-url="/demo/delivery.html">🚚 Pengiriman</div>
+    <div class="tab" data-url="/demo/qc.html">✅ QC Barang</div>
+    <div class="tab" data-url="/demo/chat.html">💬 Chat</div>
+
+    <span class="sep">|</span>
+    <span class="grp">Admin</span>
+    <div class="tab" data-url="/demo/admin-dashboard.html">⚙️ Dashboard</div>
+    <div class="tab" data-url="/demo/admin-suppliers.html">🏭 Supplier</div>
+
+    <span class="sep">|</span>
+    <span class="grp">Supplier (Publik)</span>
+    <div class="tab" data-url="/demo/price-update.html">📲 Isi Harga</div>
+    <div class="tab" data-url="/demo/po-confirm.html">✅ Konfirmasi PO</div>
   </div>
 
   <iframe id="preview" src="/demo/login.html"></iframe>
 
   <script>
-    const tabs = document.querySelectorAll('.tab');
-    tabs.forEach(tab => {
+    document.querySelectorAll('.tab').forEach(tab => {
       tab.addEventListener('click', () => {
-        tabs.forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
         tab.classList.add('active');
         document.getElementById('preview').src = tab.dataset.url;
       });
